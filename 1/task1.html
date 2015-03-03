@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="author" content="Igor Zhirkov" />
+
+
+<title>Homework 1</title>
+
+<script src="task1_files/jquery-1.11.0/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="task1_files/bootstrap-3.3.1/css/united.min.css" rel="stylesheet" />
+<script src="task1_files/bootstrap-3.3.1/js/bootstrap.min.js"></script>
+<script src="task1_files/bootstrap-3.3.1/shim/html5shiv.min.js"></script>
+<script src="task1_files/bootstrap-3.3.1/shim/respond.min.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<link rel="stylesheet"
+      href="task1_files/highlight/default.css"
+      type="text/css" />
+<script src="task1_files/highlight/highlight.js"></script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs && document.readyState && document.readyState === "complete") {
+   window.setTimeout(function() {
+      hljs.initHighlighting();
+   }, 0);
+}
+</script>
+
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+</style>
+<div class="container-fluid main-container">
+
+
+<div id="header">
+<h1 class="title">Homework 1</h1>
+<h4 class="author"><em>Igor Zhirkov</em></h4>
+<h4 class="date"><em>Tuesday, March 03, 2015</em></h4>
+</div>
+
+
+<pre class="r"><code>library(lattice)
+library(e1071)</code></pre>
+<pre><code>## Warning: package &#39;e1071&#39; was built under R version 3.1.2</code></pre>
+<pre class="r"><code>library(MASS)
+d &lt;- read.csv(&quot;advertising.csv&quot;, row.names = NULL)
+d$X &lt;- NULL
+d.size &lt;- nrow(d) </code></pre>
+<p>Треть – обучающая выборка.</p>
+<pre class="r"><code>train.size &lt;- d.size * 2. / 3
+train.idcs &lt;- sample(d.size, train.size)
+d.train &lt;- d[train.idcs,]
+d.test &lt;- d[-train.idcs,]</code></pre>
+<p>Линейная регрессия:</p>
+<pre class="r"><code>d.reg &lt;- lm(Sales ~ ., d.train)
+summary(d.reg);</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Sales ~ ., data = d.train)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -8.6991 -0.5344  0.2489  1.1579  2.5880 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 3.143942   0.375254   8.378 7.87e-14 ***
+## TV          0.045657   0.001722  26.515  &lt; 2e-16 ***
+## Radio       0.179338   0.010654  16.832  &lt; 2e-16 ***
+## Newspaper   0.002455   0.007102   0.346     0.73    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 1.647 on 129 degrees of freedom
+## Multiple R-squared:  0.8974, Adjusted R-squared:  0.8951 
+## F-statistic: 376.3 on 3 and 129 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>Обученную модель спросим:</p>
+<pre class="r"><code>d.pred &lt;- predict(d.reg, d.test)</code></pre>
+<p><img src="task1_files/figure-html/unnamed-chunk-5-1.png" title="" alt="" width="672" /><img src="task1_files/figure-html/unnamed-chunk-5-2.png" title="" alt="" width="672" /></p>
+<p>Нужно посчитать rss:</p>
+<pre class="r"><code>rss &lt;- function(x) sqrt(sum(x^2) / length(x))
+c(rss(d.reg$residuals),rss(d.pred - d.test$Sales))</code></pre>
+<pre><code>## [1] 1.621732 1.778001</code></pre>
+<p>Наибольший вклад, думаю, вносят ошибки на низких значениях sales.</p>
+<p>Будем по одному убирать признаки. Проверим, что действительно указанный выше t-статистикой newspaper незначим.</p>
+<pre class="r"><code>d.reg.cut &lt;- update(d.reg, . ~ . - TV)
+d.pred.cut &lt;- predict(d.reg.cut, d.test)
+c(rss(d.reg.cut$residuals), rss(d.pred.cut - d.test$Sales))</code></pre>
+<pre><code>## [1] 4.118742 4.549011</code></pre>
+<p>Стало хуже, вывод: TV значим.</p>
+<pre class="r"><code>d.reg.cut &lt;- update(d.reg, . ~ . - Newspaper);
+d.pred.cut &lt;- predict(d.reg.cut, d.test);
+c(rss(d.reg.cut$residuals), rss(d.pred.cut - d.test$Sales))</code></pre>
+<pre><code>## [1] 1.622483 1.772903</code></pre>
+<p>Стало чуть лучше, вывод: Newspaper незначим.</p>
+<pre class="r"><code>d.reg.cut &lt;- update(d.reg, . ~ . - Radio);
+d.pred.cut &lt;- predict(d.reg.cut, d.test);
+c(rss(d.reg.cut$residuals), rss(d.pred.cut - d.test$Sales))</code></pre>
+<pre><code>## [1] 2.899369 3.457020</code></pre>
+<p>Стало хуже, вывод: Radio значим.</p>
+<p>В вырожденном случае удалим все признаки и опять будет плохо:</p>
+<pre class="r"><code>badcut &lt;- lm(Sales ~ 1, data = d.train)
+badpredcut &lt;- predict(badcut, d.test)
+
+c(rss(badcut$residuals),rss(badpredcut - d.test$Sales) )</code></pre>
+<pre><code>## [1] 5.063859 5.478378</code></pre>
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

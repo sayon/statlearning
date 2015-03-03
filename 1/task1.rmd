@@ -1,0 +1,100 @@
+---
+title: "Homework 1"
+author: "Igor Zhirkov"
+date: "Tuesday, March 03, 2015"
+output:
+  html_document:
+    self_contained: no
+    toc: true
+    theme: united
+  
+---
+
+
+```{r}
+library(lattice)
+library(e1071)
+library(MASS)
+d <- read.csv("advertising.csv", row.names = NULL)
+d$X <- NULL
+d.size <- nrow(d) 
+```
+
+Треть -- обучающая выборка.
+
+```{r, echo=TRUE}
+train.size <- d.size * 2. / 3
+train.idcs <- sample(d.size, train.size)
+d.train <- d[train.idcs,]
+d.test <- d[-train.idcs,]
+```
+
+Линейная регрессия:
+
+```{r}
+d.reg <- lm(Sales ~ ., d.train)
+summary(d.reg);
+```
+Обученную модель спросим:
+ 
+```{r}
+d.pred <- predict(d.reg, d.test)
+```
+
+```{r, echo=FALSE}
+panel.custom = function(...) { panel.xyplot(...); panel.loess(...); panel.lmline(...) }
+xyplot(fitted(d.reg) ~ d.train$Sales, pch=19, panel=panel.custom)
+xyplot(d.pred ~ d.test$Sales, pch=19, panel=panel.custom)
+```
+
+Нужно посчитать rss:
+
+```{r}
+rss <- function(x) sqrt(sum(x^2) / length(x))
+c(rss(d.reg$residuals),rss(d.pred - d.test$Sales))
+```
+
+
+Наибольший вклад, думаю, вносят ошибки на низких значениях sales. 
+
+Будем по одному убирать признаки. Проверим, что действительно указанный выше t-статистикой newspaper незначим.
+
+```{r}
+d.reg.cut <- update(d.reg, . ~ . - TV)
+d.pred.cut <- predict(d.reg.cut, d.test)
+c(rss(d.reg.cut$residuals), rss(d.pred.cut - d.test$Sales))
+```
+
+Стало хуже, вывод: TV значим.
+
+```{r}
+d.reg.cut <- update(d.reg, . ~ . - Newspaper);
+d.pred.cut <- predict(d.reg.cut, d.test);
+c(rss(d.reg.cut$residuals), rss(d.pred.cut - d.test$Sales))
+```
+
+Стало чуть лучше, вывод: Newspaper незначим.
+
+
+```{r}
+d.reg.cut <- update(d.reg, . ~ . - Radio);
+d.pred.cut <- predict(d.reg.cut, d.test);
+c(rss(d.reg.cut$residuals), rss(d.pred.cut - d.test$Sales))
+```
+
+Стало хуже, вывод: Radio значим.
+
+
+В вырожденном случае удалим все признаки и опять будет плохо:
+
+
+```{r}
+badcut <- lm(Sales ~ 1, data = d.train)
+badpredcut <- predict(badcut, d.test)
+
+c(rss(badcut$residuals),rss(badpredcut - d.test$Sales) )
+```
+
+
+
+
