@@ -1,0 +1,134 @@
+---
+title: "Задание 1.2 -- universities"
+author: "Igor Zhirkov" 
+output:
+  html_document:
+    self_contained: no
+    toc: false
+    theme: united
+  
+---
+
+Подготовим данные
+
+```{r, warning=FALSE}
+library(lattice)
+library(latticeExtra)
+library(MASS)
+library(e1071) 
+
+df <- read.csv2(file = "universities.csv")
+df <- subset(df, select = c(PPIND, AVRCOMB, NEW10, FULLTIME, IN_STATE, ROOM, ADD_FEE, GRADUAT, SAL_FULL, NUM_FULL))
+df$PPIND <- factor(df$PPIND, labels = c("Public", "Private"))
+df <- na.exclude(df)
+df.private <- subset(df, PPIND == "Private")
+df.public <- subset(df, PPIND == "Public")
+
+
+head(df.private)
+head(df.public)
+splom(df, groups = df$PPIND)
+formula <- NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + log(SAL_FULL) + GRADUAT + NUM_FULL
+  
+
+analyze <- function(dataframe) {
+  l <- lm( formula, data = dataframe)
+  
+  print(summary(l))
+   print(''); print('--------------------');print(''); 
+  l <- stepAIC(l)
+
+  l.room <- update(l, . ~ . -log(ROOM))
+  l.fee <- update(l, . ~ . -log(ADD_FEE))
+  l.fee.room <- update(l, . ~ . -log(ADD_FEE) -log(ROOM))
+  print(''); print('--------------------');print(''); 
+  print(anova(l, l.room, l.fee, l.fee.room))
+  print(summary(l))
+  }
+```
+
+
+Проанализируем все частные университеты:
+
+```{r} 
+analyze(df.private) 
+```
+
+
+Видно прямую зависимость между количеством выпускников и количеством поступивших. 
+Некоторые университеты нужно удалить, ибо слишком выбиваются значения для ADD_FEE IN_STATE ROOM.
+
+Я удалил Delawa (25-ый), Fordham (99) и Pennsy[lvania] (129) из частных университетов, а из государственных -- колледж William'а (152).
+
+Теперь удалим выбивающиеся университеты, из частных это University of Delawa, Fordham University, University of Pennsy. 
+ 
+```{r} 
+splom(~df.private)
+splom(~df.public)
+
+df.public.cut <- df.public[! rownames(df.public) == 152, ]
+df.private.cut <- df.private[! rownames(df.private) %in% c(25, 99, 129), ]
+df.cut <- df[! rownames(df) %in% c(25, 99, 129, 152), ]
+ 
+splom(~df.private.cut)
+splom(~df.public.cut)
+```
+
+
+Теперь проанализируем лучшую выборку.
+```{r}
+analyze(df.private.cut)
+```
+
+Необходимо построить модель для всех университетов, используя эффекты взаимодействия с фактором PPIND.
+
+```{r}
+analyzePPIND <- function(d) {
+  formula <- NEW10 ~ FULLTIME * PPIND + log(IN_STATE) * PPIND + log(ROOM) * PPIND + log(SAL_FULL) * PPIND + GRADUAT * PPIND
+  contrasts(d$PPIND) <- contr.sum
+  print(contrasts(d$PPIND))
+  l <- lm(formula, data = d)
+  l <- stepAIC(l)
+  print(summary(l))
+}
+
+analyzePPIND(df)
+analyzePPIND(df.cut)
+
+
+```
+
+По непонятным мне причинам удаление парочки университетов, которые, казалось бы, только выбиваются, привело к тому, что важные признаки изменились: их стало меньше на 1 и вообще "важность" их, если можно так выразиться, упала. Единственное, что приходит в голову: не очень удачные данные.
+
+Ниже я восклицательными знаками отметил своё недоумение:
+
+```
+## Coefficients:
+##                        Estimate Std. Error t value Pr(>|t|)    
+## (Intercept)          -2.622e+02  9.037e+01  -2.901 0.005555 **  
+## FULLTIME              9.196e-04  4.766e-04   1.929 0.059473 .  
+## PPIND1                2.084e+02  4.063e+01   5.130 4.95e-06 *** !
+## log(IN_STATE)         9.367e+00  4.431e+00   2.114 0.039637 *  
+## log(ROOM)            -6.278e+00  4.372e+00  -1.436 0.157358    
+## log(SAL_FULL)         2.738e+01  1.521e+01   1.800 0.077960 .  
+## GRADUAT               9.272e-01  1.181e-01   7.850 3.24e-10 *** !
+## FULLTIME:PPIND1      -6.976e-04  4.545e-04  -1.535 0.131282    
+## PPIND1:log(IN_STATE) -1.979e+01  4.316e+00  -4.584 3.17e-05 *** !
+## PPIND1:GRADUAT       -3.705e-01  1.010e-01  -3.670 0.000599 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+
+## Coefficients:
+##                        Estimate Std. Error t value Pr(>|t|)    
+## (Intercept)          -3.205e+02  1.449e+02  -2.212   0.0319 *  
+## FULLTIME              5.968e-04  2.558e-04   2.333   0.0240 *  
+## PPIND1                2.500e+02  1.260e+02   1.984   0.0532 .  
+## log(IN_STATE)         1.462e+01  1.394e+01   1.048   0.2998    
+## log(SAL_FULL)         2.239e+01  1.345e+01   1.665   0.1026    
+## GRADUAT               7.934e-01  1.528e-01   5.193 4.36e-06 *** !
+## PPIND1:log(IN_STATE) -2.469e+01  1.394e+01  -1.771   0.0830 .  
+## PPIND1:GRADUAT       -3.800e-01  1.480e-01  -2.567   0.0135 *  
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="author" content="Igor Zhirkov" />
+
+
+<title>Задание 1.2 – universities</title>
+
+<script src="task2.1_files/jquery-1.11.0/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="task2.1_files/bootstrap-3.3.1/css/united.min.css" rel="stylesheet" />
+<script src="task2.1_files/bootstrap-3.3.1/js/bootstrap.min.js"></script>
+<script src="task2.1_files/bootstrap-3.3.1/shim/html5shiv.min.js"></script>
+<script src="task2.1_files/bootstrap-3.3.1/shim/respond.min.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<link rel="stylesheet"
+      href="task2.1_files/highlight/default.css"
+      type="text/css" />
+<script src="task2.1_files/highlight/highlight.js"></script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs && document.readyState && document.readyState === "complete") {
+   window.setTimeout(function() {
+      hljs.initHighlighting();
+   }, 0);
+}
+</script>
+
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+</style>
+<div class="container-fluid main-container">
+
+
+<div id="header">
+<h1 class="title">Задание 1.2 – universities</h1>
+<h4 class="author"><em>Igor Zhirkov</em></h4>
+</div>
+
+
+<p>Подготовим данные</p>
+<pre class="r"><code>library(lattice)
+library(latticeExtra)</code></pre>
+<pre><code>## Loading required package: RColorBrewer</code></pre>
+<pre class="r"><code>library(MASS)
+library(e1071) 
+
+df &lt;- read.csv2(file = &quot;universities.csv&quot;)
+df &lt;- subset(df, select = c(PPIND, AVRCOMB, NEW10, FULLTIME, IN_STATE, ROOM, ADD_FEE, GRADUAT, SAL_FULL, NUM_FULL))
+df$PPIND &lt;- factor(df$PPIND, labels = c(&quot;Public&quot;, &quot;Private&quot;))
+df &lt;- na.exclude(df)
+df.private &lt;- subset(df, PPIND == &quot;Private&quot;)
+df.public &lt;- subset(df, PPIND == &quot;Public&quot;)
+
+
+head(df.private)</code></pre>
+<pre><code>##      PPIND AVRCOMB NEW10 FULLTIME IN_STATE ROOM ADD_FEE GRADUAT SAL_FULL
+## 19 Private    1090    45    13259    17230 3566     330      68      802
+## 23 Private    1010    29     2666    15192 4695     330      67      623
+## 25 Private    1035    22    14130     3690 2280     410      75      723
+## 26 Private    1133    35     4545    15934 2440     210      69      746
+## 35 Private    1220    76     5544    17600 3600     230      96      796
+## 53 Private    1220    79     7671    16850 4400     147      97      798
+##    NUM_FULL
+## 19      485
+## 23      142
+## 25      341
+## 26      165
+## 35      203
+## 53      274</code></pre>
+<pre class="r"><code>head(df.public)</code></pre>
+<pre><code>##     PPIND AVRCOMB NEW10 FULLTIME IN_STATE ROOM ADD_FEE GRADUAT SAL_FULL
+## 6  Public     939    23    11249     1828 1890      66      41      511
+## 7  Public     983    29    21664     1828 2186      66      49      648
+## 21 Public    1024    29    15646     2124 4180     585      59      598
+## 38 Public    1086    43    19553     1899 1770     453      63      619
+## 39 Public     978    36    11028     1460 1808      97      54      713
+## 48 Public    1139    52    25422     2760 1780     920      81      682
+##    NUM_FULL
+## 6       173
+## 7       647
+## 21      483
+## 38      650
+## 39      442
+## 48      927</code></pre>
+<pre class="r"><code>splom(df, groups = df$PPIND)</code></pre>
+<p><img src="task2.1_files/figure-html/unnamed-chunk-1-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>formula &lt;- NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + log(SAL_FULL) + GRADUAT + NUM_FULL
+  
+
+analyze &lt;- function(dataframe) {
+  l &lt;- lm( formula, data = dataframe)
+  
+  print(summary(l))
+   print(&#39;&#39;); print(&#39;--------------------&#39;);print(&#39;&#39;); 
+  l &lt;- stepAIC(l)
+
+  l.room &lt;- update(l, . ~ . -log(ROOM))
+  l.fee &lt;- update(l, . ~ . -log(ADD_FEE))
+  l.fee.room &lt;- update(l, . ~ . -log(ADD_FEE) -log(ROOM))
+  print(&#39;&#39;); print(&#39;--------------------&#39;);print(&#39;&#39;); 
+  print(anova(l, l.room, l.fee, l.fee.room))
+  print(summary(l))
+  }</code></pre>
+<p>Проанализируем все частные университеты:</p>
+<pre class="r"><code>analyze(df.private) </code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = formula, data = dataframe)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -11.450  -4.289   0.872   3.828   9.516 
+## 
+## Coefficients:
+##                 Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   -3.104e+02  2.510e+02  -1.237  0.24197    
+## FULLTIME       1.456e-03  9.640e-04   1.511  0.15909    
+## log(IN_STATE)  3.114e+01  7.805e+00   3.990  0.00212 ** 
+## log(ROOM)     -1.129e+01  8.338e+00  -1.354  0.20293    
+## log(ADD_FEE)   3.721e+00  3.231e+00   1.151  0.27401    
+## log(SAL_FULL)  2.594e+00  3.754e+01   0.069  0.94614    
+## GRADUAT        1.321e+00  1.911e-01   6.916 2.53e-05 ***
+## NUM_FULL       1.242e-02  2.542e-02   0.488  0.63481    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 8.068 on 11 degrees of freedom
+## Multiple R-squared:  0.9537, Adjusted R-squared:  0.9242 
+## F-statistic: 32.36 on 7 and 11 DF,  p-value: 1.748e-06
+## 
+## [1] &quot;&quot;
+## [1] &quot;--------------------&quot;
+## [1] &quot;&quot;
+## Start:  AIC=84.96
+## NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + 
+##     log(SAL_FULL) + GRADUAT + NUM_FULL
+## 
+##                 Df Sum of Sq    RSS     AIC
+## - log(SAL_FULL)  1      0.31  716.3  82.965
+## - NUM_FULL       1     15.53  731.6  83.364
+## &lt;none&gt;                        716.0  84.956
+## - log(ADD_FEE)   1     86.29  802.3  85.118
+## - log(ROOM)      1    119.32  835.3  85.885
+## - FULLTIME       1    148.53  864.6  86.538
+## - log(IN_STATE)  1   1036.55 1752.6  99.964
+## - GRADUAT        1   3113.21 3829.2 114.814
+## 
+## Step:  AIC=82.96
+## NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + 
+##     GRADUAT + NUM_FULL
+## 
+##                 Df Sum of Sq    RSS     AIC
+## - NUM_FULL       1      25.0  741.3  81.615
+## &lt;none&gt;                        716.3  82.965
+## - log(ADD_FEE)   1      86.3  802.6  83.126
+## - log(ROOM)      1     135.5  851.8  84.256
+## - FULLTIME       1     149.7  866.1  84.571
+## - log(IN_STATE)  1    1171.7 1888.0  99.378
+## - GRADUAT        1    4394.3 5110.6 118.298
+## 
+## Step:  AIC=81.62
+## NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + 
+##     GRADUAT
+## 
+##                 Df Sum of Sq    RSS     AIC
+## &lt;none&gt;                        741.3  81.615
+## - log(ROOM)      1     142.7  884.0  82.961
+## - log(ADD_FEE)   1     204.9  946.2  84.252
+## - FULLTIME       1     468.7 1210.0  88.924
+## - log(IN_STATE)  1    1591.7 2333.0 101.399
+## - GRADUAT        1    7049.2 7790.5 124.308
+## [1] &quot;&quot;
+## [1] &quot;--------------------&quot;
+## [1] &quot;&quot;
+## Analysis of Variance Table
+## 
+## Model 1: NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + 
+##     GRADUAT
+## Model 2: NEW10 ~ FULLTIME + log(IN_STATE) + log(ADD_FEE) + GRADUAT
+## Model 3: NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + GRADUAT
+## Model 4: NEW10 ~ FULLTIME + log(IN_STATE) + GRADUAT
+##   Res.Df     RSS Df Sum of Sq      F  Pr(&gt;F)  
+## 1     13  741.30                              
+## 2     14  884.04 -1  -142.742 2.5032 0.13763  
+## 3     14  946.20  0   -62.159                 
+## 4     15 1127.55 -1  -181.355 3.1804 0.09788 .
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Call:
+## lm(formula = NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + 
+##     GRADUAT, data = dataframe)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -12.6392  -4.2624   0.3945   3.5180  12.4945 
+## 
+## Coefficients:
+##                 Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   -3.202e+02  7.651e+01  -4.185 0.001070 ** 
+## FULLTIME       1.871e-03  6.525e-04   2.867 0.013222 *  
+## log(IN_STATE)  3.322e+01  6.287e+00   5.283 0.000148 ***
+## log(ROOM)     -1.175e+01  7.424e+00  -1.582 0.137628    
+## log(ADD_FEE)   4.810e+00  2.537e+00   1.896 0.080463 .  
+## GRADUAT        1.385e+00  1.246e-01  11.118 5.19e-08 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.551 on 13 degrees of freedom
+## Multiple R-squared:  0.9521, Adjusted R-squared:  0.9336 
+## F-statistic: 51.63 on 5 and 13 DF,  p-value: 4.043e-08</code></pre>
+<p>Видно прямую зависимость между количеством выпускников и количеством поступивших. Некоторые университеты нужно удалить, ибо слишком выбиваются значения для ADD_FEE IN_STATE ROOM.</p>
+<p>Я удалил Delawa (25-ый), Fordham (99) и Pennsy[lvania] (129) из частных университетов, а из государственных – колледж William’а (152).</p>
+<p>Теперь удалим выбивающиеся университеты, из частных это University of Delawa, Fordham University, University of Pennsy.</p>
+<pre class="r"><code>splom(~df.private)</code></pre>
+<p><img src="task2.1_files/figure-html/unnamed-chunk-3-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>splom(~df.public)</code></pre>
+<p><img src="task2.1_files/figure-html/unnamed-chunk-3-2.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>df.public.cut &lt;- df.public[! rownames(df.public) == 152, ]
+df.private.cut &lt;- df.private[! rownames(df.private) %in% c(25, 99, 129), ]
+df.cut &lt;- df[! rownames(df) %in% c(25, 99, 129, 152), ]
+ 
+splom(~df.private.cut)</code></pre>
+<p><img src="task2.1_files/figure-html/unnamed-chunk-3-3.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>splom(~df.public.cut)</code></pre>
+<p><img src="task2.1_files/figure-html/unnamed-chunk-3-4.png" title="" alt="" width="672" /></p>
+<p>Теперь проанализируем лучшую выборку.</p>
+<pre class="r"><code>analyze(df.private.cut)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = formula, data = dataframe)
+## 
+## Residuals:
+##    Min     1Q Median     3Q    Max 
+## -9.908 -2.295 -0.637  3.585 10.121 
+## 
+## Coefficients:
+##                 Estimate Std. Error t value Pr(&gt;|t|)  
+## (Intercept)   -9.435e+02  6.159e+02  -1.532   0.1641  
+## FULLTIME       9.011e-04  1.044e-03   0.863   0.4132  
+## log(IN_STATE)  4.606e+01  3.269e+01   1.409   0.1965  
+## log(ROOM)      1.332e+01  1.595e+01   0.835   0.4278  
+## log(ADD_FEE)   3.065e+00  3.884e+00   0.789   0.4528  
+## log(SAL_FULL)  5.096e+01  4.888e+01   1.042   0.3277  
+## GRADUAT        1.067e+00  3.639e-01   2.933   0.0189 *
+## NUM_FULL      -9.151e-03  3.294e-02  -0.278   0.7882  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.691 on 8 degrees of freedom
+## Multiple R-squared:  0.9624, Adjusted R-squared:  0.9295 
+## F-statistic: 29.25 on 7 and 8 DF,  p-value: 4.348e-05
+## 
+## [1] &quot;&quot;
+## [1] &quot;--------------------&quot;
+## [1] &quot;&quot;
+## Start:  AIC=70.19
+## NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + 
+##     log(SAL_FULL) + GRADUAT + NUM_FULL
+## 
+##                 Df Sum of Sq    RSS    AIC
+## - NUM_FULL       1      4.56 477.72 68.343
+## - log(ADD_FEE)   1     36.82 509.98 69.389
+## - log(ROOM)      1     41.26 514.42 69.527
+## - FULLTIME       1     44.05 517.21 69.614
+## &lt;none&gt;                       473.16 70.190
+## - log(SAL_FULL)  1     64.28 537.44 70.228
+## - log(IN_STATE)  1    117.41 590.57 71.736
+## - GRADUAT        1    508.64 981.80 79.869
+## 
+## Step:  AIC=68.34
+## NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(ADD_FEE) + 
+##     log(SAL_FULL) + GRADUAT
+## 
+##                 Df Sum of Sq     RSS    AIC
+## - log(ADD_FEE)   1     32.27  510.00 67.389
+## - log(ROOM)      1     38.68  516.41 67.589
+## - FULLTIME       1     40.45  518.17 67.644
+## &lt;none&gt;                        477.72 68.343
+## - log(SAL_FULL)  1     85.79  563.52 68.986
+## - log(IN_STATE)  1    157.84  635.57 70.911
+## - GRADUAT        1    783.26 1260.99 81.873
+## 
+## Step:  AIC=67.39
+## NEW10 ~ FULLTIME + log(IN_STATE) + log(ROOM) + log(SAL_FULL) + 
+##     GRADUAT
+## 
+##                 Df Sum of Sq     RSS    AIC
+## - FULLTIME       1     20.44  530.44 66.018
+## - log(ROOM)      1     67.88  577.88 67.388
+## &lt;none&gt;                        510.00 67.389
+## - log(IN_STATE)  1    153.23  663.23 69.592
+## - log(SAL_FULL)  1    172.26  682.26 70.045
+## - GRADUAT        1    755.65 1265.65 79.932
+## 
+## Step:  AIC=66.02
+## NEW10 ~ log(IN_STATE) + log(ROOM) + log(SAL_FULL) + GRADUAT
+## 
+##                 Df Sum of Sq     RSS    AIC
+## &lt;none&gt;                        530.44 66.018
+## - log(ROOM)      1    132.52  662.96 67.586
+## - log(IN_STATE)  1    202.23  732.67 69.186
+## - log(SAL_FULL)  1    329.03  859.47 71.740
+## - GRADUAT        1    974.21 1504.65 80.700
+## [1] &quot;&quot;
+## [1] &quot;--------------------&quot;
+## [1] &quot;&quot;
+## Analysis of Variance Table
+## 
+## Model 1: NEW10 ~ log(IN_STATE) + log(ROOM) + log(SAL_FULL) + GRADUAT
+## Model 2: NEW10 ~ log(IN_STATE) + log(SAL_FULL) + GRADUAT
+## Model 3: NEW10 ~ log(IN_STATE) + log(ROOM) + log(SAL_FULL) + GRADUAT
+## Model 4: NEW10 ~ log(IN_STATE) + log(SAL_FULL) + GRADUAT
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1     11 530.44                           
+## 2     12 662.96 -1   -132.52 2.7481 0.1256
+## 3     11 530.44  1    132.52 2.7481 0.1256
+## 4     12 662.96 -1   -132.52 2.7481 0.1256
+## 
+## Call:
+## lm(formula = NEW10 ~ log(IN_STATE) + log(ROOM) + log(SAL_FULL) + 
+##     GRADUAT, data = dataframe)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -12.4449  -3.4430  -0.2349   4.7250   8.2562 
+## 
+## Coefficients:
+##                Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   -994.2793   263.7931  -3.769 0.003105 ** 
+## log(IN_STATE)   43.4883    21.2358   2.048 0.065214 .  
+## log(ROOM)       17.4128    10.5039   1.658 0.125582    
+## log(SAL_FULL)   61.8775    23.6884   2.612 0.024165 *  
+## GRADUAT          0.9517     0.2117   4.495 0.000909 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 6.944 on 11 degrees of freedom
+## Multiple R-squared:  0.9578, Adjusted R-squared:  0.9425 
+## F-statistic: 62.48 on 4 and 11 DF,  p-value: 1.714e-07</code></pre>
+<p>Необходимо построить модель для всех университетов, используя эффекты взаимодействия с фактором PPIND.</p>
+<pre class="r"><code>analyzePPIND &lt;- function(d) {
+  formula &lt;- NEW10 ~ FULLTIME * PPIND + log(IN_STATE) * PPIND + log(ROOM) * PPIND + log(SAL_FULL) * PPIND + GRADUAT * PPIND
+  contrasts(d$PPIND) &lt;- contr.sum
+  print(contrasts(d$PPIND))
+  l &lt;- lm(formula, data = d)
+  l &lt;- stepAIC(l)
+  print(summary(l))
+}
+
+analyzePPIND(df)</code></pre>
+<pre><code>##         [,1]
+## Public     1
+## Private   -1
+## Start:  AIC=284.94
+## NEW10 ~ FULLTIME * PPIND + log(IN_STATE) * PPIND + log(ROOM) * 
+##     PPIND + log(SAL_FULL) * PPIND + GRADUAT * PPIND
+## 
+##                       Df Sum of Sq    RSS    AIC
+## - PPIND:log(SAL_FULL)  1      1.08 4917.2 282.95
+## - PPIND:log(ROOM)      1     26.77 4942.9 283.26
+## - FULLTIME:PPIND       1    169.46 5085.6 284.94
+## &lt;none&gt;                             4916.1 284.94
+## - PPIND:GRADUAT        1    720.25 5636.4 291.01
+## - PPIND:log(IN_STATE)  1   1666.67 6582.8 300.17
+## 
+## Step:  AIC=282.95
+## NEW10 ~ FULLTIME + PPIND + log(IN_STATE) + log(ROOM) + log(SAL_FULL) + 
+##     GRADUAT + FULLTIME:PPIND + PPIND:log(IN_STATE) + PPIND:log(ROOM) + 
+##     PPIND:GRADUAT
+## 
+##                       Df Sum of Sq    RSS    AIC
+## - PPIND:log(ROOM)      1     29.46 4946.7 281.31
+## &lt;none&gt;                             4917.2 282.95
+## - FULLTIME:PPIND       1    237.12 5154.3 283.73
+## - log(SAL_FULL)        1    249.00 5166.2 283.87
+## - PPIND:GRADUAT        1   1294.39 6211.6 294.74
+## - PPIND:log(IN_STATE)  1   2082.59 6999.8 301.79
+## 
+## Step:  AIC=281.31
+## NEW10 ~ FULLTIME + PPIND + log(IN_STATE) + log(ROOM) + log(SAL_FULL) + 
+##     GRADUAT + FULLTIME:PPIND + PPIND:log(IN_STATE) + PPIND:GRADUAT
+## 
+##                       Df Sum of Sq    RSS    AIC
+## &lt;none&gt;                             4946.7 281.31
+## - log(ROOM)            1    208.17 5154.8 281.74
+## - FULLTIME:PPIND       1    237.78 5184.4 282.08
+## - log(SAL_FULL)        1    327.22 5273.9 283.09
+## - PPIND:GRADUAT        1   1359.58 6306.2 293.63
+## - PPIND:log(IN_STATE)  1   2121.46 7068.1 300.36
+## 
+## Call:
+## lm(formula = NEW10 ~ FULLTIME + PPIND + log(IN_STATE) + log(ROOM) + 
+##     log(SAL_FULL) + GRADUAT + FULLTIME:PPIND + PPIND:log(IN_STATE) + 
+##     PPIND:GRADUAT, data = d)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -22.0048  -5.7543   0.3727   4.8331  21.6720 
+## 
+## Coefficients:
+##                        Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)          -2.622e+02  9.037e+01  -2.901 0.005555 ** 
+## FULLTIME              9.196e-04  4.766e-04   1.929 0.059473 .  
+## PPIND1                2.084e+02  4.063e+01   5.130 4.95e-06 ***
+## log(IN_STATE)         9.367e+00  4.431e+00   2.114 0.039637 *  
+## log(ROOM)            -6.278e+00  4.372e+00  -1.436 0.157358    
+## log(SAL_FULL)         2.738e+01  1.521e+01   1.800 0.077960 .  
+## GRADUAT               9.272e-01  1.181e-01   7.850 3.24e-10 ***
+## FULLTIME:PPIND1      -6.976e-04  4.545e-04  -1.535 0.131282    
+## PPIND1:log(IN_STATE) -1.979e+01  4.316e+00  -4.584 3.17e-05 ***
+## PPIND1:GRADUAT       -3.705e-01  1.010e-01  -3.670 0.000599 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 10.05 on 49 degrees of freedom
+## Multiple R-squared:  0.8517, Adjusted R-squared:  0.8244 
+## F-statistic: 31.26 on 9 and 49 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>analyzePPIND(df.cut)</code></pre>
+<pre><code>##         [,1]
+## Public     1
+## Private   -1
+## Start:  AIC=258.26
+## NEW10 ~ FULLTIME * PPIND + log(IN_STATE) * PPIND + log(ROOM) * 
+##     PPIND + log(SAL_FULL) * PPIND + GRADUAT * PPIND
+## 
+##                       Df Sum of Sq    RSS    AIC
+## - FULLTIME:PPIND       1     0.248 3892.1 256.26
+## - PPIND:log(SAL_FULL)  1    42.783 3934.6 256.86
+## - PPIND:log(ROOM)      1   102.100 3993.9 257.69
+## &lt;none&gt;                             3891.8 258.26
+## - PPIND:log(IN_STATE)  1   236.579 4128.4 259.51
+## - PPIND:GRADUAT        1   239.521 4131.3 259.55
+## 
+## Step:  AIC=256.26
+## NEW10 ~ FULLTIME + PPIND + log(IN_STATE) + log(ROOM) + log(SAL_FULL) + 
+##     GRADUAT + PPIND:log(IN_STATE) + PPIND:log(ROOM) + PPIND:log(SAL_FULL) + 
+##     PPIND:GRADUAT
+## 
+##                       Df Sum of Sq    RSS    AIC
+## - PPIND:log(SAL_FULL)  1     61.72 3953.8 255.13
+## - PPIND:log(ROOM)      1    125.80 4017.8 256.01
+## &lt;none&gt;                             3892.1 256.26
+## - PPIND:log(IN_STATE)  1    259.19 4151.2 257.81
+## - FULLTIME             1    287.23 4179.3 258.18
+## - PPIND:GRADUAT        1    331.70 4223.8 258.76
+## 
+## Step:  AIC=255.13
+## NEW10 ~ FULLTIME + PPIND + log(IN_STATE) + log(ROOM) + log(SAL_FULL) + 
+##     GRADUAT + PPIND:log(IN_STATE) + PPIND:log(ROOM) + PPIND:GRADUAT
+## 
+##                       Df Sum of Sq    RSS    AIC
+## - PPIND:log(ROOM)      1     98.44 4052.2 254.48
+## &lt;none&gt;                             3953.8 255.13
+## - FULLTIME             1    274.43 4228.2 256.82
+## - PPIND:log(IN_STATE)  1    305.45 4259.2 257.22
+## - log(SAL_FULL)        1    344.73 4298.5 257.73
+## - PPIND:GRADUAT        1    506.34 4460.1 259.76
+## 
+## Step:  AIC=254.48
+## NEW10 ~ FULLTIME + PPIND + log(IN_STATE) + log(ROOM) + log(SAL_FULL) + 
+##     GRADUAT + PPIND:log(IN_STATE) + PPIND:GRADUAT
+## 
+##                       Df Sum of Sq    RSS    AIC
+## - log(ROOM)            1     30.39 4082.6 252.89
+## &lt;none&gt;                             4052.2 254.48
+## - PPIND:log(IN_STATE)  1    255.57 4307.8 255.85
+## - log(SAL_FULL)        1    271.00 4323.2 256.04
+## - FULLTIME             1    376.08 4428.3 257.36
+## - PPIND:GRADUAT        1    562.87 4615.1 259.64
+## 
+## Step:  AIC=252.89
+## NEW10 ~ FULLTIME + PPIND + log(IN_STATE) + log(SAL_FULL) + GRADUAT + 
+##     PPIND:log(IN_STATE) + PPIND:GRADUAT
+## 
+##                       Df Sum of Sq    RSS    AIC
+## &lt;none&gt;                             4082.6 252.89
+## - log(SAL_FULL)        1    240.69 4323.3 254.04
+## - PPIND:log(IN_STATE)  1    272.47 4355.1 254.45
+## - FULLTIME             1    472.93 4555.5 256.92
+## - PPIND:GRADUAT        1    572.41 4655.0 258.11
+## 
+## Call:
+## lm(formula = NEW10 ~ FULLTIME + PPIND + log(IN_STATE) + log(SAL_FULL) + 
+##     GRADUAT + PPIND:log(IN_STATE) + PPIND:GRADUAT, data = d)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -18.4195  -5.2384  -0.8312   5.6289  24.9108 
+## 
+## Coefficients:
+##                        Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)          -3.205e+02  1.449e+02  -2.212   0.0319 *  
+## FULLTIME              5.968e-04  2.558e-04   2.333   0.0240 *  
+## PPIND1                2.500e+02  1.260e+02   1.984   0.0532 .  
+## log(IN_STATE)         1.462e+01  1.394e+01   1.048   0.2998    
+## log(SAL_FULL)         2.239e+01  1.345e+01   1.665   0.1026    
+## GRADUAT               7.934e-01  1.528e-01   5.193 4.36e-06 ***
+## PPIND1:log(IN_STATE) -2.469e+01  1.394e+01  -1.771   0.0830 .  
+## PPIND1:GRADUAT       -3.800e-01  1.480e-01  -2.567   0.0135 *  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 9.32 on 47 degrees of freedom
+## Multiple R-squared:  0.8641, Adjusted R-squared:  0.8438 
+## F-statistic: 42.68 on 7 and 47 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>По непонятным мне причинам удаление парочки университетов, которые, казалось бы, только выбиваются, привело к тому, что важные признаки изменились: их стало меньше на 1 и вообще “важность” их, если можно так выразиться, упала. Единственное, что приходит в голову: не очень удачные данные.</p>
+<p>Ниже я восклицательными знаками отметил своё недоумение:</p>
+<pre><code>## Coefficients:
+##                        Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)          -2.622e+02  9.037e+01  -2.901 0.005555 **  
+## FULLTIME              9.196e-04  4.766e-04   1.929 0.059473 .  
+## PPIND1                2.084e+02  4.063e+01   5.130 4.95e-06 *** !
+## log(IN_STATE)         9.367e+00  4.431e+00   2.114 0.039637 *  
+## log(ROOM)            -6.278e+00  4.372e+00  -1.436 0.157358    
+## log(SAL_FULL)         2.738e+01  1.521e+01   1.800 0.077960 .  
+## GRADUAT               9.272e-01  1.181e-01   7.850 3.24e-10 *** !
+## FULLTIME:PPIND1      -6.976e-04  4.545e-04  -1.535 0.131282    
+## PPIND1:log(IN_STATE) -1.979e+01  4.316e+00  -4.584 3.17e-05 *** !
+## PPIND1:GRADUAT       -3.705e-01  1.010e-01  -3.670 0.000599 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+
+## Coefficients:
+##                        Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)          -3.205e+02  1.449e+02  -2.212   0.0319 *  
+## FULLTIME              5.968e-04  2.558e-04   2.333   0.0240 *  
+## PPIND1                2.500e+02  1.260e+02   1.984   0.0532 .  
+## log(IN_STATE)         1.462e+01  1.394e+01   1.048   0.2998    
+## log(SAL_FULL)         2.239e+01  1.345e+01   1.665   0.1026    
+## GRADUAT               7.934e-01  1.528e-01   5.193 4.36e-06 *** !
+## PPIND1:log(IN_STATE) -2.469e+01  1.394e+01  -1.771   0.0830 .  
+## PPIND1:GRADUAT       -3.800e-01  1.480e-01  -2.567   0.0135 *  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
