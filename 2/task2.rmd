@@ -1,0 +1,126 @@
+---
+title: "Задание 1.1"
+author: "Igor Zhirkov" 
+output:
+  html_document:
+    self_contained: no
+    toc: false
+    theme: united
+  
+---
+
+### Ввод данных
+
+```{r, warning=FALSE}
+library(lattice)
+library(latticeExtra)
+library(MASS)
+library(e1071)
+df <- read.table("teengambling.txt") 
+df$sex <- factor(df$sex, labels = c("male", "female"))
+contrasts(df$sex) <- contr.sum
+head(df) 
+```
+
+Поизучаем то, что у нас есть. 
+```{r}
+##contrasts(df$sex) <- contr.sum
+bwplot(~ gamble | status, data = df) 
+bwplot( ~gamble | income, data = df)
+bwplot( ~gamble | verbal, data = df)
+```
+ 
+ 
+```{r}
+marginal.plot(df, data=df, groups=sex) 
+```
+Это наводит на мысль о том, что нужно будет изучить мужчин и женщин отдельно. 
+
+
+Какие признаки неважны?
+```{r}
+l = lm(gamble ~ ., data=df)
+summary(l)
+```
+
+Status и Verbal, кажется, не из нужного. Попробуем AIC.
+
+
+```{r}
+stepAIC(l)
+```
+ 
+ 
+Убрался status, а verbal остался. Давайте статус уберем из модели, посмотрим на новую значимость критериев.
+
+
+```{r}
+l <- update(l, . ~ . -status)
+summary(l)
+```
+
+
+Удалим еще и verbal.
+
+```{r}
+l <- update(l, . ~ . -verbal)
+summary(l)
+bwplot(~gamble | income * sex, data = df)
+```
+
+Кажется, мальчики играют больше + чем больше доход, тем больше играют. 
+
+
+Осталось изучить взаимную связь.
+```{r}
+x <- lm(gamble ~ sex * income, data=df)
+summary(x)
+
+stepAIC(x)
+
+anova(l, x)
+```
+
+Видимо, мальчики с высоким доходом действительно играют больше. Это еще раз подтверждает,что нужно изучить девочек отдельно, т.к. если мальчики более активно влияют на картину, то наша модель недостаточно точна для предсказания девочек.
+
+```{r}
+df.male <- subset(df, sex=="male");  df.male$sex <- NULL
+l.male <- lm(gamble ~ ., data=df.male); summary(l.male)
+```
+Вновь status/verbal оказываются не очень важны, посмотрим, что удалит AIC.
+
+```{r}
+stepAIC(l.male)
+```
+
+Действительно,  status и тут неважен. verbal учитывать не будем тоже.
+```{r}
+l.male <- lm(gamble ~ income, data=df.male)
+summary(l.male)
+```
+
+Анализ для мальчиков подтверждает то, что мы получили в общей картине -- видимо, или они похожи на девочек( но график в самом начале заставляет в этом сомневаться) или "забивают" их.
+
+Аналогичный анализ проводим для девочек.
+
+
+```{r}
+df.female <- subset(df, sex=="female")
+df.female$sex <- NULL
+l.female <- lm(gamble ~ ., data=df.female)
+summary(l.female)
+stepAIC(l.female)
+l.female <- update(l.female, . ~ . -verbal)
+summary(l.female)
+```
+
+Странно, но у девочек income оказался неважным фактором. Видимо, для них будет адекватным рассмотреть просто зависимость от статуса?
+
+```{r}
+l.female.cut <- update(l.female, . ~ . -income)
+summary(l.female.cut)
+summary(aov(gamble ~ income * status, data =  df.female) )
+```
+Видимо, так и есть: для девочек важен статус.
+
+ 
