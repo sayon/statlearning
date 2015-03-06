@@ -1,0 +1,178 @@
+---
+title: "Задание 2.2 -- infmort"
+author: "Igor Zhirkov"
+output:
+  html_document:
+    self_contained: no
+    theme: united
+    toc: no
+  pdf_document:
+    toc: no
+---
+
+
+Провести анализ для данных infmort (статистика по детской смертности по разным странам в зависимости от региона, дохода и того, является ли страна экспортером нефти). Нужно построить зависимость детской смертности от всего остального и проинтерпретировать результаты. Разумеется, хороший график не помешает.
+
+### Ввод данных
+
+```{r, warning=FALSE}
+library(lattice)
+library(latticeExtra)
+library(MASS)
+library(e1071)
+df <- read.table("infmort.txt")
+df <- na.exclude(df)
+df$region <- factor(df$region, labels = sort(unique(df$region)))
+
+head(df) 
+dim(df)
+```
+
+Сразу прологарифмируем income так как он очччень сильно перекошен (а также денежный признак, о чем упоминалось). 
+
+Было:
+
+```{r}
+hist(df$income, breaks=20)
+```
+
+Стало:
+```{r}
+df$income <- log(df$income)
+hist(df$income, breaks=20)
+```
+
+
+Поизучаем то, что у нас есть. 
+```{r}
+
+splom(df) 
+bwplot(~mortality | region * oil, df )
+marginal.plot(df, data = df, groups = oil, auto.key = list(lines = TRUE, title = "oil", cex.title = 2, columns = 2))
+
+```
+
+Посмотрев внимательнее мы понимаем, что экспортеров нефти очень, очень мало, причем доходы в них не превышают примерно 3,5 тысячи в год, тогда как в не-экспортерах доходы поднимаются гораздо выше. Более того, солидная часть графика для mortality для 400-600 есть только для экспортеров нефти.
+
+
+```{r}
+histogram(~oil | region, df) 
+marginal.plot(df, data = df, groups = region, auto.key = list(lines = TRUE, title = "region", cex.title = 2, columns = 4))
+
+bwplot(mortality / 1000 ~ income |  region, df)
+```
+ 
+
+Проверим тривиальное утверждение, что богатые страны имеют лучшее медобслуживание:
+
+
+```{r}
+xyplot(mortality ~ income, df)
+```
+
+
+Не очень похоже на то, чтобы это можно было аппроксимировать прямой. Смертность с падением доходов растет очень быстро. Я думаю, стоит попробовать экспоненциальную зависимость. Поэтому прологарифмируем mortality также.
+
+```{r}
+df$mortality <- log(df$mortality)
+ 
+xyplot(mortality ~  income, df, type=c('r', 'p'))
+
+
+```
+
+Вот теперь это выглядит хорошо.
+
+Начнём "в лоб" -- попробуем построить прямую зависимость от всего:
+
+```{r}
+l <- lm(mortality ~ income + oil + region, data = df)
+summary(l)
+stepAIC(l)
+```
+ 
+ 
+
+Попробуем по регионам, все же Европу и Африку было бы некорректно сравнивать:
+
+
+```{r}
+d <-subset(df, region == "Africa")
+
+afr <- lm(mortality ~ income + oil, data = d)
+summary(afr)
+stepAIC(afr) 
+xyplot(mortality ~ income, data = d, type = c("r", "p"))
+
+```
+
+В Африке все данные одинаковые: смертность большая, доход низкий, поэтому никаких разумных закономерностей.
+ 
+
+```{r}
+# no oil exporters in Europe
+eur <- lm(mortality ~ income, data = subset(df, region == "Europe"))
+summary(eur)
+stepAIC(eur)
+xyplot(mortality ~ income, data = subset(df, region == "Europe"), type = c("r", "p"))
+
+```
+
+В Европе не хватает экспортеров нефти (вообще ни одного), поэтому рассматривать их смысла нет. Получаем уже известную информацию про income.
+
+```{r}
+ame <- lm(mortality ~ income + oil, data = subset(df, region == "Americas"))
+summary(ame)
+stepAIC(ame)
+```
+ 
+Америка также считает, что экспорт нефти не играет роли. 
+
+```{r}
+xyplot(mortality ~ income, data = subset(df, region == "Americas"), type = c("r", "p"))
+```
+
+```{r}
+
+asia <- lm(mortality ~ income + oil, data = subset(df, region == "Asia"))
+summary(asia) 
+stepAIC(asia) 
+```
+
+Азия считает, что всё-таки некоторая значимость у экспорта нефти есть.
+
+```{r}
+xyplot(mortality ~ income, data = subset(df, region == "Asia"), type = c("r", "p"))
+```
+ 
+Попробуем добавить взаимных влияний.
+
+```{r}
+l <- lm(mortality ~ income * region * oil, data = df)
+summary(l)
+stepAIC(l)
+```  
+
+Здесь что-то интересное, однако будем осторожны: признаков много, данных мало. Скорее всего, именно поэтому нашлось много закономерностей 
+
+```{r}
+l <- lm(mortality ~ income * region , data = df)
+summary(l)
+stepAIC(l)
+```
+ 
+Получилось лучше, чем с учетом экспорта.
+
+Ну и самый простой вариант:
+
+
+```{r}
+l <- lm(mortality ~ income, data = df)
+summary(l)
+stepAIC(l)
+```
+
+
+Итак, вывод к которому я пришел: 
+* Сложные закономерности находятся, но данных мало
+* Скорее всего зависимость от income или income * region - то, что нужно для хорошей модели. 
