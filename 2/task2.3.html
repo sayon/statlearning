@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="author" content="Igor Zhirkov" />
+
+
+<title>Задание 2.3 – twins</title>
+
+<script src="task2.3_files/jquery-1.11.0/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="task2.3_files/bootstrap-3.3.1/css/united.min.css" rel="stylesheet" />
+<script src="task2.3_files/bootstrap-3.3.1/js/bootstrap.min.js"></script>
+<script src="task2.3_files/bootstrap-3.3.1/shim/html5shiv.min.js"></script>
+<script src="task2.3_files/bootstrap-3.3.1/shim/respond.min.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<link rel="stylesheet"
+      href="task2.3_files/highlight/default.css"
+      type="text/css" />
+<script src="task2.3_files/highlight/highlight.js"></script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs && document.readyState && document.readyState === "complete") {
+   window.setTimeout(function() {
+      hljs.initHighlighting();
+   }, 0);
+}
+</script>
+
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+</style>
+<div class="container-fluid main-container">
+
+
+<div id="header">
+<h1 class="title">Задание 2.3 – twins</h1>
+<h4 class="author"><em>Igor Zhirkov</em></h4>
+</div>
+
+
+<p>Нужно построить зависимость интеллекта приемного ребенка от интеллекта его близнеца и социального класса его биологических родителей и проинтерпретировать результат.</p>
+<p>Прежде всего хотелось бы их сравнить с данными, полученными от неразлученных близнецов + интересен также социальный класс приемных родителей. Жаль, что у меня таких нет.</p>
+<pre class="r"><code>library(lattice)
+library(latticeExtra)</code></pre>
+<pre><code>## Loading required package: RColorBrewer</code></pre>
+<pre class="r"><code>library(MASS)
+library(e1071)
+
+df &lt;- read.table(&quot;twins.txt&quot;)
+head(df)</code></pre>
+<pre><code>##   Foster Biological Social
+## 1     82         82   high
+## 2     80         90   high
+## 3     88         91   high
+## 4    108        115   high
+## 5    116        115   high
+## 6    117        129   high</code></pre>
+<pre class="r"><code>bwplot(Foster ~ Biological | Social, df)</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-1-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>bwplot(~Foster | Social, df) </code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-1-2.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>dfh &lt;- subset(df, Social==&#39;high&#39;)
+dfm &lt;- subset(df, Social==&#39;middle&#39;)
+dfl &lt;- subset(df, Social==&#39;low&#39;)
+
+
+summary(lm(Foster ~ Biological , dfh))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological, data = dfh)
+## 
+## Residuals:
+##       1       2       3       4       5       6       7 
+##  3.7119 -6.1086  0.9139 -2.5476  5.4524 -7.2335  5.8114 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  -1.8720    13.2725  -0.141 0.893339    
+## Biological    0.9776     0.1216   8.037 0.000482 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 5.903 on 5 degrees of freedom
+## Multiple R-squared:  0.9282, Adjusted R-squared:  0.9138 
+## F-statistic:  64.6 on 1 and 5 DF,  p-value: 0.0004823</code></pre>
+<pre class="r"><code>summary(lm(Foster~Biological, dfm))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological, data = dfm)
+## 
+## Residuals:
+##       8       9      10      11      12      13 
+##  -5.676  -2.649  12.433  -0.155 -10.073   6.119 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)  
+## (Intercept)   0.8160    30.0654   0.027    0.980  
+## Biological    0.9726     0.3297   2.950    0.042 *
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 9.121 on 4 degrees of freedom
+## Multiple R-squared:  0.6851, Adjusted R-squared:  0.6064 
+## F-statistic: 8.704 on 1 and 4 DF,  p-value: 0.04196</code></pre>
+<pre class="r"><code>summary(lm(Foster~Biological, dfl))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological, data = dfl)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -14.4795  -4.2045  -0.0884   2.9553  13.7984 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   7.2046    17.3806   0.415   0.6858    
+## Biological    0.9484     0.1890   5.018   0.0003 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 8.218 on 12 degrees of freedom
+## Multiple R-squared:  0.6772, Adjusted R-squared:  0.6503 
+## F-statistic: 25.18 on 1 and 12 DF,  p-value: 0.0003003</code></pre>
+<pre class="r"><code>xyplot(Foster ~ Biological, df, type = c(&#39;r&#39;,&#39;p&#39;))</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-1-3.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>xyplot(Foster ~ Biological, dfh, type = c(&#39;r&#39;,&#39;p&#39;))</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-1-4.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>xyplot(Foster ~ Biological, dfm, type = c(&#39;r&#39;,&#39;p&#39;))</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-1-5.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>xyplot(Foster ~ Biological, dfl, type = c(&#39;r&#39;,&#39;p&#39;))</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-1-6.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>cor(df$Foster,  df$Biological)</code></pre>
+<pre><code>## [1] 0.8819877</code></pre>
+<pre class="r"><code>cor(dfh$Foster, dfh$Biological)</code></pre>
+<pre><code>## [1] 0.9634107</code></pre>
+<pre class="r"><code>cor(dfm$Foster, dfm$Biological)</code></pre>
+<pre><code>## [1] 0.8277303</code></pre>
+<pre class="r"><code>cor(dfl$Foster, dfl$Biological)</code></pre>
+<pre><code>## [1] 0.8229297</code></pre>
+<p>А почему корреляция не 0.77, как указано в вики (и не только)?</p>
+<pre class="r"><code>l &lt;- lm(Foster ~ Biological * Social, df)
+lpar &lt;- lm(Foster ~ Biological + Social, df)
+lbio &lt;- lm(Foster ~ Biological, df)
+
+summary(l)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological * Social, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -14.479  -5.248  -0.155   4.582  13.798 
+## 
+## Coefficients:
+##                          Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)             -1.872044  17.808264  -0.105    0.917    
+## Biological               0.977562   0.163192   5.990 6.04e-06 ***
+## Sociallow                9.076654  24.448704   0.371    0.714    
+## Socialmiddle             2.688068  31.604178   0.085    0.933    
+## Biological:Sociallow    -0.029140   0.244580  -0.119    0.906    
+## Biological:Socialmiddle -0.004995   0.329525  -0.015    0.988    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.921 on 21 degrees of freedom
+## Multiple R-squared:  0.8041, Adjusted R-squared:  0.7574 
+## F-statistic: 17.24 on 5 and 21 DF,  p-value: 8.31e-07</code></pre>
+<pre class="r"><code>stepAIC(l) </code></pre>
+<pre><code>## Start:  AIC=116.97
+## Foster ~ Biological * Social
+## 
+##                     Df Sum of Sq    RSS    AIC
+## - Biological:Social  2   0.93181 1318.4 112.98
+## &lt;none&gt;                           1317.5 116.97
+## 
+## Step:  AIC=112.99
+## Foster ~ Biological + Social
+## 
+##              Df Sum of Sq    RSS    AIC
+## - Social      2     175.1 1493.5 112.35
+## &lt;none&gt;                    1318.4 112.98
+## - Biological  1    4674.7 5993.1 151.87
+## 
+## Step:  AIC=112.35
+## Foster ~ Biological
+## 
+##              Df Sum of Sq    RSS    AIC
+## &lt;none&gt;                    1493.5 112.35
+## - Biological  1    5231.1 6724.7 150.98</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological, data = df)
+## 
+## Coefficients:
+## (Intercept)   Biological  
+##      9.2076       0.9014</code></pre>
+<pre class="r"><code>summary(lpar)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological + Social, data = df)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -14.8235  -5.2366  -0.1111   4.4755  13.6978 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   -0.6076    11.8551  -0.051    0.960    
+## Biological     0.9658     0.1069   9.031 5.05e-09 ***
+## Sociallow      6.2264     3.9171   1.590    0.126    
+## Socialmiddle   2.0353     4.5908   0.443    0.662    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.571 on 23 degrees of freedom
+## Multiple R-squared:  0.8039, Adjusted R-squared:  0.7784 
+## F-statistic: 31.44 on 3 and 23 DF,  p-value: 2.604e-08</code></pre>
+<pre class="r"><code>stepAIC(lpar)</code></pre>
+<pre><code>## Start:  AIC=112.99
+## Foster ~ Biological + Social
+## 
+##              Df Sum of Sq    RSS    AIC
+## - Social      2     175.1 1493.5 112.35
+## &lt;none&gt;                    1318.4 112.98
+## - Biological  1    4674.7 5993.1 151.87
+## 
+## Step:  AIC=112.35
+## Foster ~ Biological
+## 
+##              Df Sum of Sq    RSS    AIC
+## &lt;none&gt;                    1493.5 112.35
+## - Biological  1    5231.1 6724.7 150.98</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological, data = df)
+## 
+## Coefficients:
+## (Intercept)   Biological  
+##      9.2076       0.9014</code></pre>
+<pre class="r"><code>summary(lbio)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological, data = df)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -11.3512  -5.7311   0.0574   4.3244  16.3531 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  9.20760    9.29990   0.990    0.332    
+## Biological   0.90144    0.09633   9.358  1.2e-09 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.729 on 25 degrees of freedom
+## Multiple R-squared:  0.7779, Adjusted R-squared:  0.769 
+## F-statistic: 87.56 on 1 and 25 DF,  p-value: 1.204e-09</code></pre>
+<pre class="r"><code>anova(lpar, l)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: Foster ~ Biological + Social
+## Model 2: Foster ~ Biological * Social
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1     23 1318.4                           
+## 2     21 1317.5  2   0.93181 0.0074 0.9926</code></pre>
+<pre class="r"><code>anova(lpar, lbio)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: Foster ~ Biological + Social
+## Model 2: Foster ~ Biological
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1     23 1318.4                           
+## 2     25 1493.5 -2   -175.13 1.5276 0.2383</code></pre>
+<p>Ну эти штуки сказали, что зависимость есть, причем социальный класс родителей неважен. Насколько мне известно, основное обвинение было в том, что корреляция была слишком одинаковая для разных выборок.</p>
+<p>Поизучаем сами данные:</p>
+<pre class="r"><code>histogram(~Biological | Social, data=df, breaks= 100)</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-4-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>histogram(~Foster | Social, data=df, breaks= 100)</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-4-2.png" title="" alt="" width="672" /></p>
+<p>Выглядит немного странно. Почему гистограммы для Foster и Biological так отличаются? Не это ли “подозрительно” в датасете?</p>
+<p>Попробуем как указано в пояснении к датасету обучиться и попредсказывать.</p>
+<pre class="r"><code>train.size = nrow(df) * 1. /2
+train.idcs &lt;- sample(nrow(df), train.size)
+df.train &lt;- df[train.idcs,]
+df.test &lt;- df[-train.idcs,]
+df.reg &lt;- lm(Foster ~ Biological , df.train)
+summary(df.reg)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological, data = df.train)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -12.3555  -3.9330   0.6184   3.4634  13.0670 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   7.7879    12.3028   0.633     0.54    
+## Biological    0.9396     0.1282   7.332 1.48e-05 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.498 on 11 degrees of freedom
+## Multiple R-squared:  0.8301, Adjusted R-squared:  0.8147 
+## F-statistic: 53.76 on 1 and 11 DF,  p-value: 1.482e-05</code></pre>
+<pre class="r"><code>df.pred &lt;- predict(df.reg, df.test)
+
+summary(df.pred - df.test$Foster)</code></pre>
+<pre><code>##     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+## -14.0700   0.1483   4.9760   4.2830   9.6030  14.0900</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-6-1.png" title="" alt="" width="672" /><img src="task2.3_files/figure-html/unnamed-chunk-6-2.png" title="" alt="" width="672" /></p>
+<p>Действительно, можем предсказать достаточно точно.</p>
+<p>Посмотрим также модель, зависящую от соцкласса. Она должна работать примерно так же.</p>
+<pre class="r"><code>df.reg &lt;- lm(Foster ~ Biological * Social , df.train)
+summary(df.reg)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological * Social, data = df.train)
+## 
+## Residuals:
+##    Min     1Q Median     3Q    Max 
+## -6.319 -3.119  0.000  1.996  9.704 
+## 
+## Coefficients:
+##                         Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)             -33.9235    23.2771  -1.457 0.188364    
+## Biological                1.2553     0.2055   6.108 0.000487 ***
+## Sociallow                25.9165    27.7813   0.933 0.381935    
+## Socialmiddle            115.9902    55.9291   2.074 0.076776 .  
+## Biological:Sociallow     -0.1181     0.2654  -0.445 0.669744    
+## Biological:Socialmiddle  -1.1219     0.6024  -1.863 0.104821    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 6.006 on 7 degrees of freedom
+## Multiple R-squared:  0.9307, Adjusted R-squared:  0.8811 
+## F-statistic: 18.79 on 5 and 7 DF,  p-value: 0.0006273</code></pre>
+<pre class="r"><code>df.pred &lt;- predict(df.reg, df.test)
+
+summary(df.pred - df.test$Foster)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -14.670  -7.162   4.836   3.185  10.940  21.470</code></pre>
+<p><img src="task2.3_files/figure-html/unnamed-chunk-8-1.png" title="" alt="" width="672" /><img src="task2.3_files/figure-html/unnamed-chunk-8-2.png" title="" alt="" width="672" /></p>
+<p>Еще некоторые соображения относительно фейковости. После разных сравнений с помощью anova была замечена любопытная вещь:</p>
+<pre class="r"><code>a &lt;- lm(Foster ~ Biological + Social, df)
+b &lt;- lm(Foster~ Biological, df)
+anova(a, b)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: Foster ~ Biological + Social
+## Model 2: Foster ~ Biological
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1     23 1318.4                           
+## 2     25 1493.5 -2   -175.13 1.5276 0.2383</code></pre>
+<pre class="r"><code>summary(a)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological + Social, data = df)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -14.8235  -5.2366  -0.1111   4.4755  13.6978 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   -0.6076    11.8551  -0.051    0.960    
+## Biological     0.9658     0.1069   9.031 5.05e-09 ***
+## Sociallow      6.2264     3.9171   1.590    0.126    
+## Socialmiddle   2.0353     4.5908   0.443    0.662    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.571 on 23 degrees of freedom
+## Multiple R-squared:  0.8039, Adjusted R-squared:  0.7784 
+## F-statistic: 31.44 on 3 and 23 DF,  p-value: 2.604e-08</code></pre>
+<pre class="r"><code>summary(b)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Foster ~ Biological, data = df)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -11.3512  -5.7311   0.0574   4.3244  16.3531 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  9.20760    9.29990   0.990    0.332    
+## Biological   0.90144    0.09633   9.358  1.2e-09 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.729 on 25 degrees of freedom
+## Multiple R-squared:  0.7779, Adjusted R-squared:  0.769 
+## F-statistic: 87.56 on 1 and 25 DF,  p-value: 1.204e-09</code></pre>
+<p>Равенство RSS тут кажется совершенно невероятным. Насколько я понимаю, Foster ~ Biological это модель из одной линии для всего, а Foster ~ Biological + Social из набора параллельных линий (каждому соцклассу своя). Эти смещения совпадают до трех знаков после запятой, что кажется подозрительным на столь малом датасете (даже для двух признаков).</p>
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

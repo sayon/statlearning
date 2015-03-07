@@ -1,0 +1,141 @@
+---
+title: "Задание 2.3 -- twins"
+author: "Igor Zhirkov"
+output:
+  html_document:
+    self_contained: no
+    theme: united
+    toc: no
+  pdf_document:
+    toc: no
+---
+
+Нужно построить зависимость интеллекта приемного ребенка от интеллекта его близнеца и социального класса его биологических родителей и проинтерпретировать результат.
+
+Прежде всего хотелось бы их сравнить с данными, полученными от неразлученных близнецов + интересен также социальный класс приемных родителей. Жаль, что у меня таких нет.
+
+```{r, warning=FALSE}
+library(lattice)
+library(latticeExtra)
+library(MASS)
+library(e1071)
+
+df <- read.table("twins.txt")
+head(df)
+bwplot(Foster ~ Biological | Social, df)
+bwplot(~Foster | Social, df) 
+
+dfh <- subset(df, Social=='high')
+dfm <- subset(df, Social=='middle')
+dfl <- subset(df, Social=='low')
+
+
+summary(lm(Foster ~ Biological , dfh))
+summary(lm(Foster~Biological, dfm))
+summary(lm(Foster~Biological, dfl))
+xyplot(Foster ~ Biological, df, type = c('r','p'))
+xyplot(Foster ~ Biological, dfh, type = c('r','p'))
+xyplot(Foster ~ Biological, dfm, type = c('r','p'))
+xyplot(Foster ~ Biological, dfl, type = c('r','p'))
+```
+
+
+```{r}
+cor(df$Foster,  df$Biological)
+cor(dfh$Foster, dfh$Biological)
+cor(dfm$Foster, dfm$Biological)
+cor(dfl$Foster, dfl$Biological)
+
+```
+
+А почему корреляция не 0.77, как указано в вики (и не только)?
+
+
+```{r}
+l <- lm(Foster ~ Biological * Social, df)
+lpar <- lm(Foster ~ Biological + Social, df)
+lbio <- lm(Foster ~ Biological, df)
+
+summary(l)
+stepAIC(l) 
+
+summary(lpar)
+stepAIC(lpar)
+
+summary(lbio)
+anova(lpar, l)
+anova(lpar, lbio)
+```
+ 
+
+
+Ну эти штуки сказали, что зависимость есть, причем социальный класс родителей неважен. Насколько мне известно, основное обвинение было в том, что корреляция была слишком одинаковая для разных выборок. 
+
+
+
+Поизучаем сами данные:
+
+```{r}
+histogram(~Biological | Social, data=df, breaks= 100)
+histogram(~Foster | Social, data=df, breaks= 100)
+```
+
+Выглядит немного странно. Почему гистограммы для Foster и Biological так отличаются? Не это ли "подозрительно" в датасете?
+
+
+Попробуем как указано в пояснении к датасету обучиться и попредсказывать. 
+```{r}
+train.size = nrow(df) * 1. /2
+train.idcs <- sample(nrow(df), train.size)
+df.train <- df[train.idcs,]
+df.test <- df[-train.idcs,]
+df.reg <- lm(Foster ~ Biological , df.train)
+summary(df.reg)
+
+df.pred <- predict(df.reg, df.test)
+
+summary(df.pred - df.test$Foster)
+
+
+```
+
+```{r, echo=FALSE} 
+panel.custom = function(...) { panel.xyplot(...); panel.loess(...); panel.lmline(...) }
+xyplot(fitted(df.reg) ~ df.train$Foster, pch=19, panel=panel.custom)
+xyplot(df.pred ~ df.test$Foster, pch=19, panel=panel.custom)
+```
+
+Действительно, можем предсказать достаточно точно.
+
+Посмотрим также модель, зависящую от соцкласса. Она должна работать примерно так же.
+```{r}
+df.reg <- lm(Foster ~ Biological * Social , df.train)
+summary(df.reg)
+
+df.pred <- predict(df.reg, df.test)
+
+summary(df.pred - df.test$Foster)
+
+
+```
+
+```{r, echo=FALSE} 
+panel.custom = function(...) { panel.xyplot(...); panel.loess(...); panel.lmline(...) }
+xyplot(fitted(df.reg) ~ df.train$Foster, pch=19, panel=panel.custom)
+xyplot(df.pred ~ df.test$Foster, pch=19, panel=panel.custom)
+```
+
+Еще некоторые соображения относительно фейковости. После разных сравнений с помощью anova была замечена любопытная вещь:
+
+
+```{r}
+a <- lm(Foster ~ Biological + Social, df)
+b <- lm(Foster~ Biological, df)
+anova(a, b)
+summary(a)
+summary(b)
+```
+
+Равенство RSS тут кажется совершенно невероятным. Насколько я понимаю, Foster ~ Biological это модель из одной линии для всего, а Foster ~ Biological + Social из набора параллельных линий (каждому соцклассу своя).  Эти смещения совпадают до трех знаков после запятой, что кажется подозрительным на столь малом датасете (даже для двух признаков).
+
+
