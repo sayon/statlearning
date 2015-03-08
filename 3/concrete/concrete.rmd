@@ -1,0 +1,176 @@
+---
+title: "Задание 3.1 -- concrete"
+author: "Igor Zhirkov"
+output:
+  html_document:
+    self_contained: no
+    theme: united
+    toc: no
+  pdf_document:
+    toc: no
+---
+
+```{r, warning=FALSE}
+library(lattice)
+library(latticeExtra)
+library(MASS)
+library(e1071) 
+helperDrawer <- function(x, y, ...) { panel.xyplot(x, y, ...); panel.loess(x, y, ..., col='black') }
+
+df <- read.csv("concrete.csv", header = TRUE, comment.char = "#")
+names(df)[names(df) == "ConcreteCompressiveStrength"] <- "CCS"
+
+head(df)
+summary(df)
+
+
+marginal.plot(df)
+```
+
+Ниже видно, что многие параметры не независимы!
+
+```{r}
+levelplot(cor(df), par.settings = list(regions = list(col = colorRampPalette(grey(1:0)))), scales = list(x = list(rot = 90)), xlab = "", ylab = "")
+```
+
+Теперь внимательно посмотрим на нижеприведенный график дабы понять, где есть очевидные зависимости:
+
+```{r}
+splom(~df, df, upper.panel = helperDrawer, pscale = 0, lower.panel = function(...){}, par.settings=simpleTheme(cex = 0.2, pch = 17))
+
+
+```
+
+Изучим зависимости подробнее. ```stepAIC``` от произведения тут не поможет -- слишком много всего, долго работает и выдает очень сложную формулу.
+
+```{r}
+
+xyplot(CCS ~ Age, df, type = c('p','r'))
+summary(lm(CCS ~ Age, df))
+```
+
+Думаю, логарифмирование тут нужно.
+
+```{r}
+xyplot(CCS ~ log(Age), df, type = c('p','r'))
+summary(lm(CCS ~ log(Age), df))
+
+anova(lm(CCS ~ log(Age), df),lm(CCS ~ Age, df))
+```
+
+Действительно, это лучше отражает зависимость.
+
+Из fineaggregate и coarseaggregate имеет смысл взять что-то одно, возьмём coarseaggregate.
+
+Water и Superplasticizer вообще не коррелируют практически, поэтому возьмём их с умножением, так же с Water и FineAggregate.
+
+
+```{r}
+xyplot(CCS ~ Water, df, type = c('p','r')) 
+summary(lm(CCS ~ Water, df))
+xyplot(CCS ~ Superplasticizer, df, type = c('p','r')) 
+summary(lm(CCS ~ Superplasticizer, df))
+
+xyplot(CCS ~ Water * Superplasticizer, df, type = c('p','r')) 
+summary(lm(CCS ~ Water* Superplasticizer, df))
+
+xyplot(CCS ~ FineAggregate, df, type = c('p','r')) 
+summary(lm(CCS ~ FineAggregate, df))
+ 
+```
+ 
+Flyash сильно коррелирует с Superplasticizer.
+
+```{r}
+xyplot(CCS ~ FlyAsh, df, type = c('p','r')) 
+summary(lm(CCS ~FlyAsh, df))
+```
+
+Цемент хорошо коррелирует с CCS.
+
+```{r}
+xyplot(CCS ~ Cement, df, type = c('p','r'))
+summary(lm(CCS ~ Cement, df))
+```
+
+```{r}
+xyplot(CCS ~ BlastFurnaceSlag, df, type = c('p','r')) 
+summary(lm(CCS ~ BlastFurnaceSlag, df))
+```
+
+Итак, пока что у нас модель такая:
+
+```{r}
+formula <- CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + log(Age)+ FineAggregate
+fit <- lm(formula, df)
+summary(fit)
+```
+
+fineaggregate выкидываем, так как малозначим.
+
+
+```{r}
+formula <- CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + log(Age)
+fit <- lm(formula, df)
+summary(fit)
+stepAIC(fit)
+
+```
+
+Подумаем про факторы. Из важного кандидаты это water и blastfurnaceslag.
+
+```{r}
+xyplot(CCS ~ BlastFurnaceSlag, panel = helperDrawer, df, scales = list(tick.number = 50))
+```
+
+Возьмём тут 70. 
+
+```{r}
+xyplot(CCS ~ Water, panel = helperDrawer, df, scales = list(tick.number = 50)) 
+summary(lm(CCS ~ Water, df)) 
+
+```
+
+Возьмём 200.
+
+```{r}
+factorized1 <- df
+factorized2 <- df
+factorized3 <- df
+
+factorized1$BlastFurnaceSlag <- df$BlastFurnaceSlag > 70
+factorized2$Water<- df$Water > 200
+
+factorized3$BlastFurnaceSlag <- df$BlastFurnaceSlag > 70
+factorized3$Water<- df$Water > 200
+
+fit.f1 <- lm(formula, factorized1)
+fit.f2 <- lm(CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + log(Age), factorized2)
+fit.f3 <- lm(CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + log(Age), factorized3)
+
+summary(fit.f1)
+summary(fit.f2)
+summary(fit.f3)
+anova(fit, fit.f1, fit.f2, fit.f3)
+ 
+
+resplot = function(p) {
+  xyplot(resid(p) ~ fitted(p), panel = function(...) { panel.xyplot(...);  panel.lmline(...); })
+}
+plot(c(resplot(fit),
+       resplot(fit.f1),
+       resplot(fit.f2),
+       resplot(fit.f3)))
+```
+
+В общем-то, факторизация ничему не помогла. RSS вырос. Хотя теперь они находятся немного "кучнее".
+
+Думаю, исходная модель по formula без факторов была лучшей. 
+
+Проверим еще и так:
+```{r}
+tune(lm, formula, data = df, tunecontrol = tune.control(sampling = "cross"))  
+tune(lm, formula, data = factorized1, tunecontrol = tune.control(sampling = "cross"))  
+tune(lm, formula, data = factorized2, tunecontrol = tune.control(sampling = "cross"))  
+tune(lm, formula, data = factorized3, tunecontrol = tune.control(sampling = "cross"))  
+```

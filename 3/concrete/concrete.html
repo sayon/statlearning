@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="author" content="Igor Zhirkov" />
+
+
+<title>Задание 3.1 – concrete</title>
+
+<script src="concrete_files/jquery-1.11.0/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="concrete_files/bootstrap-3.3.1/css/united.min.css" rel="stylesheet" />
+<script src="concrete_files/bootstrap-3.3.1/js/bootstrap.min.js"></script>
+<script src="concrete_files/bootstrap-3.3.1/shim/html5shiv.min.js"></script>
+<script src="concrete_files/bootstrap-3.3.1/shim/respond.min.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<link rel="stylesheet"
+      href="concrete_files/highlight/default.css"
+      type="text/css" />
+<script src="concrete_files/highlight/highlight.js"></script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs && document.readyState && document.readyState === "complete") {
+   window.setTimeout(function() {
+      hljs.initHighlighting();
+   }, 0);
+}
+</script>
+
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+</style>
+<div class="container-fluid main-container">
+
+
+<div id="header">
+<h1 class="title">Задание 3.1 – concrete</h1>
+<h4 class="author"><em>Igor Zhirkov</em></h4>
+</div>
+
+
+<pre class="r"><code>library(lattice)
+library(latticeExtra)</code></pre>
+<pre><code>## Loading required package: RColorBrewer</code></pre>
+<pre class="r"><code>library(MASS)
+library(e1071) 
+helperDrawer &lt;- function(x, y, ...) { panel.xyplot(x, y, ...); panel.loess(x, y, ..., col=&#39;black&#39;) }
+
+df &lt;- read.csv(&quot;concrete.csv&quot;, header = TRUE, comment.char = &quot;#&quot;)
+names(df)[names(df) == &quot;ConcreteCompressiveStrength&quot;] &lt;- &quot;CCS&quot;
+
+head(df)</code></pre>
+<pre><code>##   Cement BlastFurnaceSlag FlyAsh Water Superplasticizer CoarseAggregate
+## 1  540.0              0.0      0   162              2.5          1040.0
+## 2  540.0              0.0      0   162              2.5          1055.0
+## 3  332.5            142.5      0   228              0.0           932.0
+## 4  332.5            142.5      0   228              0.0           932.0
+## 5  198.6            132.4      0   192              0.0           978.4
+## 6  266.0            114.0      0   228              0.0           932.0
+##   FineAggregate Age   CCS
+## 1         676.0  28 79.99
+## 2         676.0  28 61.89
+## 3         594.0 270 40.27
+## 4         594.0 365 41.05
+## 5         825.5 360 44.30
+## 6         670.0  90 47.03</code></pre>
+<pre class="r"><code>summary(df)</code></pre>
+<pre><code>##      Cement      BlastFurnaceSlag     FlyAsh           Water      
+##  Min.   :102.0   Min.   :  0.0    Min.   :  0.00   Min.   :121.8  
+##  1st Qu.:192.4   1st Qu.:  0.0    1st Qu.:  0.00   1st Qu.:164.9  
+##  Median :272.9   Median : 22.0    Median :  0.00   Median :185.0  
+##  Mean   :281.2   Mean   : 73.9    Mean   : 54.19   Mean   :181.6  
+##  3rd Qu.:350.0   3rd Qu.:142.9    3rd Qu.:118.30   3rd Qu.:192.0  
+##  Max.   :540.0   Max.   :359.4    Max.   :200.10   Max.   :247.0  
+##  Superplasticizer CoarseAggregate  FineAggregate        Age        
+##  Min.   : 0.000   Min.   : 801.0   Min.   :594.0   Min.   :  1.00  
+##  1st Qu.: 0.000   1st Qu.: 932.0   1st Qu.:731.0   1st Qu.:  7.00  
+##  Median : 6.400   Median : 968.0   Median :779.5   Median : 28.00  
+##  Mean   : 6.205   Mean   : 972.9   Mean   :773.6   Mean   : 45.66  
+##  3rd Qu.:10.200   3rd Qu.:1029.4   3rd Qu.:824.0   3rd Qu.: 56.00  
+##  Max.   :32.200   Max.   :1145.0   Max.   :992.6   Max.   :365.00  
+##       CCS       
+##  Min.   : 2.33  
+##  1st Qu.:23.71  
+##  Median :34.45  
+##  Mean   :35.82  
+##  3rd Qu.:46.13  
+##  Max.   :82.60</code></pre>
+<pre class="r"><code>marginal.plot(df)</code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-1-1.png" title="" alt="" width="672" /></p>
+<p>Ниже видно, что многие параметры не независимы!</p>
+<pre class="r"><code>levelplot(cor(df), par.settings = list(regions = list(col = colorRampPalette(grey(1:0)))), scales = list(x = list(rot = 90)), xlab = &quot;&quot;, ylab = &quot;&quot;)</code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-2-1.png" title="" alt="" width="672" /></p>
+<p>Теперь внимательно посмотрим на нижеприведенный график дабы понять, где есть очевидные зависимости:</p>
+<pre class="r"><code>splom(~df, df, upper.panel = helperDrawer, pscale = 0, lower.panel = function(...){}, par.settings=simpleTheme(cex = 0.2, pch = 17))</code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-3-1.png" title="" alt="" width="672" /></p>
+<p>Изучим зависимости подробнее. <code>stepAIC</code> от произведения тут не поможет – слишком много всего, долго работает и выдает очень сложную формулу.</p>
+<pre class="r"><code>xyplot(CCS ~ Age, df, type = c(&#39;p&#39;,&#39;r&#39;))</code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-4-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ Age, df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ Age, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -38.512 -11.290  -1.517   9.424  47.468 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 31.846595   0.606952   52.47   &lt;2e-16 ***
+## Age          0.086973   0.007789   11.17   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 15.78 on 1028 degrees of freedom
+## Multiple R-squared:  0.1082, Adjusted R-squared:  0.1073 
+## F-statistic: 124.7 on 1 and 1028 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>Думаю, логарифмирование тут нужно.</p>
+<pre class="r"><code>xyplot(CCS ~ log(Age), df, type = c(&#39;p&#39;,&#39;r&#39;))</code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-5-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ log(Age), df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ log(Age), data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -31.910 -10.178  -2.951   8.192  44.640 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  11.3110     1.2331   9.173   &lt;2e-16 ***
+## log(Age)      7.7423     0.3646  21.235   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 13.93 on 1028 degrees of freedom
+## Multiple R-squared:  0.3049, Adjusted R-squared:  0.3042 
+## F-statistic: 450.9 on 1 and 1028 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>anova(lm(CCS ~ log(Age), df),lm(CCS ~ Age, df))</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: CCS ~ log(Age)
+## Model 2: CCS ~ Age
+##   Res.Df    RSS Df Sum of Sq F Pr(&gt;F)
+## 1   1028 199615                      
+## 2   1028 256115  0    -56500</code></pre>
+<p>Действительно, это лучше отражает зависимость.</p>
+<p>Из fineaggregate и coarseaggregate имеет смысл взять что-то одно, возьмём coarseaggregate.</p>
+<p>Water и Superplasticizer вообще не коррелируют практически, поэтому возьмём их с умножением, так же с Water и FineAggregate.</p>
+<pre class="r"><code>xyplot(CCS ~ Water, df, type = c(&#39;p&#39;,&#39;r&#39;)) </code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-6-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ Water, df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ Water, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -41.610 -11.804  -0.843  10.533  44.888 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 76.95834    4.26951  18.025   &lt;2e-16 ***
+## Water       -0.22658    0.02335  -9.702   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 16 on 1028 degrees of freedom
+## Multiple R-squared:  0.08389,    Adjusted R-squared:  0.083 
+## F-statistic: 94.13 on 1 and 1028 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>xyplot(CCS ~ Superplasticizer, df, type = c(&#39;p&#39;,&#39;r&#39;)) </code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-6-2.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ Superplasticizer, df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ Superplasticizer, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -33.122 -11.577  -1.071  10.056  47.965 
+## 
+## Coefficients:
+##                  Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)      29.46605    0.69892   42.16   &lt;2e-16 ***
+## Superplasticizer  1.02373    0.08117   12.61   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 15.55 on 1028 degrees of freedom
+## Multiple R-squared:  0.134,  Adjusted R-squared:  0.1332 
+## F-statistic: 159.1 on 1 and 1028 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>xyplot(CCS ~ Water * Superplasticizer, df, type = c(&#39;p&#39;,&#39;r&#39;)) </code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-6-3.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ Water* Superplasticizer, df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ Water * Superplasticizer, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -35.064 -11.326  -0.769   9.751  47.324 
+## 
+## Coefficients:
+##                         Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)            29.205467   6.835697   4.272 2.11e-05 ***
+## Water                   0.006577   0.035371   0.186    0.853    
+## Superplasticizer        3.227581   0.614001   5.257 1.78e-07 ***
+## Water:Superplasticizer -0.014009   0.003586  -3.907 9.96e-05 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 15.42 on 1026 degrees of freedom
+## Multiple R-squared:  0.1509, Adjusted R-squared:  0.1484 
+## F-statistic: 60.76 on 3 and 1026 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>xyplot(CCS ~ FineAggregate, df, type = c(&#39;p&#39;,&#39;r&#39;)) </code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-6-4.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ FineAggregate, df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ FineAggregate, data = df)
+## 
+## Residuals:
+##    Min     1Q Median     3Q    Max 
+## -31.86 -12.08  -1.64  10.37  46.16 
+## 
+## Coefficients:
+##                Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   62.774889   4.982970  12.598  &lt; 2e-16 ***
+## FineAggregate -0.034847   0.006407  -5.439  6.7e-08 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 16.48 on 1028 degrees of freedom
+## Multiple R-squared:  0.02797,    Adjusted R-squared:  0.02702 
+## F-statistic: 29.58 on 1 and 1028 DF,  p-value: 6.704e-08</code></pre>
+<p>Flyash сильно коррелирует с Superplasticizer.</p>
+<pre class="r"><code>xyplot(CCS ~ FlyAsh, df, type = c(&#39;p&#39;,&#39;r&#39;)) </code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-7-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~FlyAsh, df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ FlyAsh, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -34.984 -12.134  -0.568  10.486  45.286 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 37.313896   0.678709   54.98  &lt; 2e-16 ***
+## FlyAsh      -0.027606   0.008096   -3.41 0.000675 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 16.62 on 1028 degrees of freedom
+## Multiple R-squared:  0.01118,    Adjusted R-squared:  0.01022 
+## F-statistic: 11.63 on 1 and 1028 DF,  p-value: 0.0006752</code></pre>
+<p>Цемент хорошо коррелирует с CCS.</p>
+<pre class="r"><code>xyplot(CCS ~ Cement, df, type = c(&#39;p&#39;,&#39;r&#39;))</code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-8-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ Cement, df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ Cement, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -40.593 -10.952  -0.569   9.990  43.240 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 13.442528   1.296948   10.37   &lt;2e-16 ***
+## Cement       0.079580   0.004324   18.40   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 14.5 on 1028 degrees of freedom
+## Multiple R-squared:  0.2478, Adjusted R-squared:  0.2471 
+## F-statistic: 338.7 on 1 and 1028 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>xyplot(CCS ~ BlastFurnaceSlag, df, type = c(&#39;p&#39;,&#39;r&#39;)) </code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-9-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ BlastFurnaceSlag, df))</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ BlastFurnaceSlag, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -35.798 -12.116  -1.599  10.241  46.101 
+## 
+## Coefficients:
+##                   Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)      33.888824   0.679565  49.868  &lt; 2e-16 ***
+## BlastFurnaceSlag  0.026106   0.005984   4.363 1.41e-05 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 16.56 on 1028 degrees of freedom
+## Multiple R-squared:  0.01818,    Adjusted R-squared:  0.01722 
+## F-statistic: 19.03 on 1 and 1028 DF,  p-value: 1.414e-05</code></pre>
+<p>Итак, пока что у нас модель такая:</p>
+<pre class="r"><code>formula &lt;- CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + log(Age)+ FineAggregate
+fit &lt;- lm(formula, df)
+summary(fit)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = formula, data = df)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -22.9690  -4.2816  -0.0305   4.1429  29.4628 
+## 
+## Coefficients:
+##                         Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)             9.946190   6.358058   1.564 0.118047    
+## BlastFurnaceSlag        0.087904   0.004280  20.537  &lt; 2e-16 ***
+## Cement                  0.113388   0.003688  30.748  &lt; 2e-16 ***
+## FlyAsh                  0.056789   0.006767   8.392  &lt; 2e-16 ***
+## Water                  -0.271508   0.018848 -14.405  &lt; 2e-16 ***
+## Superplasticizer       -1.172806   0.324762  -3.611 0.000320 ***
+## log(Age)                8.739890   0.192534  45.394  &lt; 2e-16 ***
+## FineAggregate           0.007362   0.004124   1.785 0.074503 .  
+## Water:Superplasticizer  0.007318   0.001964   3.726 0.000205 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.17 on 1021 degrees of freedom
+## Multiple R-squared:  0.8172, Adjusted R-squared:  0.8158 
+## F-statistic: 570.7 on 8 and 1021 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>fineaggregate выкидываем, так как малозначим.</p>
+<pre class="r"><code>formula &lt;- CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + log(Age)
+fit &lt;- lm(formula, df)
+summary(fit)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = formula, data = df)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -22.9591  -4.4094   0.0202   4.2865  28.9493 
+## 
+## Coefficients:
+##                         Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)            19.464258   3.468202   5.612 2.57e-08 ***
+## BlastFurnaceSlag        0.083428   0.003473  24.023  &lt; 2e-16 ***
+## Cement                  0.109381   0.002929  37.343  &lt; 2e-16 ***
+## FlyAsh                  0.050869   0.005905   8.614  &lt; 2e-16 ***
+## Water                  -0.283281   0.017676 -16.027  &lt; 2e-16 ***
+## Superplasticizer       -1.164789   0.325079  -3.583 0.000356 ***
+## log(Age)                8.712859   0.192143  45.346  &lt; 2e-16 ***
+## Water:Superplasticizer  0.007442   0.001965   3.787 0.000161 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.177 on 1022 degrees of freedom
+## Multiple R-squared:  0.8167, Adjusted R-squared:  0.8154 
+## F-statistic: 650.4 on 7 and 1022 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>stepAIC(fit)</code></pre>
+<pre><code>## Start:  AIC=4068.07
+## CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + 
+##     log(Age)
+## 
+##                          Df Sum of Sq    RSS    AIC
+## &lt;none&gt;                                 52647 4068.1
+## - Water:Superplasticizer  1       739  53386 4080.4
+## - FlyAsh                  1      3823  56469 4138.3
+## - BlastFurnaceSlag        1     29729  82376 4527.2
+## - Cement                  1     71834 124481 4952.4
+## - log(Age)                1    105924 158571 5201.7</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * 
+##     Superplasticizer + log(Age), data = df)
+## 
+## Coefficients:
+##            (Intercept)        BlastFurnaceSlag                  Cement  
+##              19.464258                0.083428                0.109381  
+##                 FlyAsh                   Water        Superplasticizer  
+##               0.050869               -0.283281               -1.164789  
+##               log(Age)  Water:Superplasticizer  
+##               8.712859                0.007442</code></pre>
+<p>Подумаем про факторы. Из важного кандидаты это water и blastfurnaceslag.</p>
+<pre class="r"><code>xyplot(CCS ~ BlastFurnaceSlag, panel = helperDrawer, df, scales = list(tick.number = 50))</code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-12-1.png" title="" alt="" width="672" /></p>
+<p>Возьмём тут 70.</p>
+<pre class="r"><code>xyplot(CCS ~ Water, panel = helperDrawer, df, scales = list(tick.number = 50)) </code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-13-1.png" title="" alt="" width="672" /></p>
+<pre class="r"><code>summary(lm(CCS ~ Water, df)) </code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ Water, data = df)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -41.610 -11.804  -0.843  10.533  44.888 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 76.95834    4.26951  18.025   &lt;2e-16 ***
+## Water       -0.22658    0.02335  -9.702   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 16 on 1028 degrees of freedom
+## Multiple R-squared:  0.08389,    Adjusted R-squared:  0.083 
+## F-statistic: 94.13 on 1 and 1028 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>Возьмём 200.</p>
+<pre class="r"><code>factorized1 &lt;- df
+factorized2 &lt;- df
+factorized3 &lt;- df
+
+factorized1$BlastFurnaceSlag &lt;- df$BlastFurnaceSlag &gt; 70
+factorized2$Water&lt;- df$Water &gt; 200
+
+factorized3$BlastFurnaceSlag &lt;- df$BlastFurnaceSlag &gt; 70
+factorized3$Water&lt;- df$Water &gt; 200
+
+fit.f1 &lt;- lm(formula, factorized1)
+fit.f2 &lt;- lm(CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + log(Age), factorized2)
+fit.f3 &lt;- lm(CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + log(Age), factorized3)
+
+summary(fit.f1)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = formula, data = factorized1)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -21.2056  -4.6053  -0.4127   4.0792  27.3603 
+## 
+## Coefficients:
+##                         Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)            25.832028   3.544825   7.287 6.32e-13 ***
+## BlastFurnaceSlagTRUE   13.861802   0.631301  21.958  &lt; 2e-16 ***
+## Cement                  0.106117   0.002995  35.437  &lt; 2e-16 ***
+## FlyAsh                  0.046847   0.006113   7.663 4.20e-14 ***
+## Water                  -0.306173   0.018336 -16.698  &lt; 2e-16 ***
+## Superplasticizer       -1.519433   0.334130  -4.547 6.08e-06 ***
+## log(Age)                8.584696   0.197969  43.364  &lt; 2e-16 ***
+## Water:Superplasticizer  0.009027   0.002018   4.474 8.55e-06 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.4 on 1022 degrees of freedom
+## Multiple R-squared:  0.8051, Adjusted R-squared:  0.8038 
+## F-statistic: 603.1 on 7 and 1022 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>summary(fit.f2)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * 
+##     Superplasticizer + log(Age), data = factorized2)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -25.305  -5.029  -0.083   4.667  38.250 
+## 
+## Coefficients:
+##                              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)                -33.048972   1.385134 -23.860  &lt; 2e-16 ***
+## BlastFurnaceSlag             0.081696   0.003758  21.739  &lt; 2e-16 ***
+## Cement                       0.109782   0.003220  34.089  &lt; 2e-16 ***
+## FlyAsh                       0.062438   0.005945  10.502  &lt; 2e-16 ***
+## WaterTRUE                   -5.182987   0.871673  -5.946 3.77e-09 ***
+## Superplasticizer             0.535576   0.053030  10.099  &lt; 2e-16 ***
+## log(Age)                     8.287519   0.208619  39.726  &lt; 2e-16 ***
+## WaterTRUE:Superplasticizer  -0.525172   0.182315  -2.881  0.00405 ** 
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 7.837 on 1022 degrees of freedom
+## Multiple R-squared:  0.7814, Adjusted R-squared:  0.7799 
+## F-statistic:   522 on 7 and 1022 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>summary(fit.f3)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * 
+##     Superplasticizer + log(Age), data = factorized3)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -26.014  -4.773  -0.441   4.311  36.000 
+## 
+## Coefficients:
+##                              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)                -30.343942   1.408034 -21.551  &lt; 2e-16 ***
+## BlastFurnaceSlagTRUE        13.034646   0.686279  18.993  &lt; 2e-16 ***
+## Cement                       0.105075   0.003316  31.685  &lt; 2e-16 ***
+## FlyAsh                       0.057863   0.006259   9.245  &lt; 2e-16 ***
+## WaterTRUE                   -4.850942   0.906122  -5.354 1.07e-07 ***
+## Superplasticizer             0.500428   0.056998   8.780  &lt; 2e-16 ***
+## log(Age)                     8.105081   0.216615  37.417  &lt; 2e-16 ***
+## WaterTRUE:Superplasticizer  -0.624209   0.189760  -3.289  0.00104 ** 
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 8.148 on 1022 degrees of freedom
+## Multiple R-squared:  0.7638, Adjusted R-squared:  0.7621 
+## F-statistic:   472 on 7 and 1022 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>anova(fit, fit.f1, fit.f2, fit.f3)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + 
+##     log(Age)
+## Model 2: CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + 
+##     log(Age)
+## Model 3: CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + 
+##     log(Age)
+## Model 4: CCS ~ BlastFurnaceSlag + Cement + FlyAsh + Water * Superplasticizer + 
+##     log(Age)
+##   Res.Df   RSS Df Sum of Sq F Pr(&gt;F)
+## 1   1022 52647                      
+## 2   1022 55971  0   -3324.4         
+## 3   1022 62766  0   -6795.1         
+## 4   1022 67843  0   -5076.5</code></pre>
+<pre class="r"><code>resplot = function(p) {
+  xyplot(resid(p) ~ fitted(p), panel = function(...) { panel.xyplot(...);  panel.lmline(...); })
+}
+plot(c(resplot(fit),
+       resplot(fit.f1),
+       resplot(fit.f2),
+       resplot(fit.f3)))</code></pre>
+<p><img src="concrete_files/figure-html/unnamed-chunk-14-1.png" title="" alt="" width="672" /></p>
+<p>В общем-то, факторизация ничему не помогла. RSS вырос. Хотя теперь они находятся немного “кучнее”.</p>
+<p>Думаю, исходная модель по formula без факторов была лучшей.</p>
+<p>Проверим еще и так:</p>
+<pre class="r"><code>tune(lm, formula, data = df, tunecontrol = tune.control(sampling = &quot;cross&quot;))  </code></pre>
+<pre><code>## 
+## Error estimation of &#39;lm&#39; using 10-fold cross validation: 52.31314</code></pre>
+<pre class="r"><code>tune(lm, formula, data = factorized1, tunecontrol = tune.control(sampling = &quot;cross&quot;))  </code></pre>
+<pre><code>## 
+## Error estimation of &#39;lm&#39; using 10-fold cross validation: 55.10948</code></pre>
+<pre class="r"><code>tune(lm, formula, data = factorized2, tunecontrol = tune.control(sampling = &quot;cross&quot;))  </code></pre>
+<pre><code>## 
+## Error estimation of &#39;lm&#39; using 10-fold cross validation: 62.1293</code></pre>
+<pre class="r"><code>tune(lm, formula, data = factorized3, tunecontrol = tune.control(sampling = &quot;cross&quot;))  </code></pre>
+<pre><code>## 
+## Error estimation of &#39;lm&#39; using 10-fold cross validation: 66.98603</code></pre>
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
