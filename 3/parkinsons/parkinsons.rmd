@@ -1,0 +1,251 @@
+---
+title: "Задание 3.2 -- parkinsons"
+author: "Igor Zhirkov"
+output:
+  html_document:
+    self_contained: no
+    theme: united
+    toc: no
+  pdf_document:
+    toc: no
+---
+
+Рассмотрим данные parkinsons. Данные и описание в архиве, кратко суть. Есть идея использовать записи речи для диагностики болезни Паркинсона. Для каждого пациента сделано несколько записей, записи обработаны и из каждой получено несколько фич. Нужно научиться по ним предсказывать, болен ли пациент.
+
+### Часть 1
+<<здесь идёт стандартный код для классификации из Rcourse.pdf>>
+
+```{r, warning=F, echo=FALSE, message=F}
+library(MASS) 
+library(nnet)  
+library(caret)
+library(lattice)
+library(latticeExtra) 
+library(ROCR) 
+library(e1071) 
+specificity <- caret:::specificity
+sensitivity <- caret:::sensitivity
+
+
+ROC <- function(predicted, actual, ...) {
+  performance(prediction(predicted, as.numeric(actual)), measure = "tpr",
+                     x.measure = "fpr", ...)
+}
+
+
+
+xyplot.performance <- function(x, ...) {
+  xyplot(x@y.values[[1]] ~ x@x.values[[1]],
+         xlab = x@x.name, ylab = x@y.name,
+         type = "l", ...) + layer_(abline(a = 0,
+                                          b = 1, col = "red"))
+  55}
+AUC <- function(predicted, actual, ...) {
+  pred <- prediction(predicted, as.numeric(actual))
+  perf <- performance(pred, measure = "auc",
+                      ...)
+  perf@y.values[[1]]
+}
+
+
+roc.opt <- function(predicted, actual, cutoff = NULL,
+                    measure = c("mean", "max", "err")) {
+  pred <- prediction(predicted, as.numeric(actual))
+  perf <- performance(pred, measure = "fpr",
+                      x.measure = "fnr")
+  measure <- match.arg(measure)
+  fpr <- perf@y.values[[1]]
+  fnr <- perf@x.values[[1]]
+  npos <- pred@n.pos[[1]]
+  nneg <- pred@n.neg[[1]]
+  err <- (fpr * nneg + fnr * npos)/(npos +
+                                      nneg)
+  error.rate <- switch(measure, mean = (fpr +
+                                          fnr)/2, max = pmax(fpr, fnr), err = err)
+  if (is.null(cutoff)) {
+    i <- which.min(error.rate)
+  } else {
+    i <- which.min(abs(perf@alpha.values[[1]] -
+                         cutoff))
+  }
+  list(cutoff = perf@alpha.values[[1]][i],
+       fpr = fpr[i], fnr = fnr[i], err = err[i],
+       error.rate = error.rate[i])
+}
+simple.predict.glm <- function(x, newdata,
+                               ...) {
+  response <- predict(x, newdata, type = "response",
+                      ...)
+  factor(levels(x$model[, 1])[1 + as.integer(response >
+                                               0.5)])
+}
+my.predict.glm <- function(x, newdata = x$data,
+                           ..., measure = "max") {
+  opt <- roc.opt(fitted(x), as.numeric(x$model[,
+                                               1]), measure = measure)
+  cutoff <- opt$cutoff
+  factor(as.integer(predict(x, newdata = newdata,
+                            type = "response") > cutoff), labels = levels(x$model[,
+                                                                                  1]))
+}
+error.fun.max <- function(true, predicted) {
+  561 - min(sensitivity(predicted, true),
+            specificity(predicted, true))
+}
+error.fun.mean <- function(true, predicted) {
+  1 - mean(sensitivity(predicted, true),
+           specificity(predicted, true))
+}
+my.lda <- function(x, data, ...) {
+  out <- lda(x, data, ...)
+  out$data <- data
+  out
+}
+my.qda <- function(x, data, ...) {
+  out <- qda(x, data, ...)
+  out$data <- data
+  out
+}
+simple.predict.da <- function(...) predict(...)$class
+my.predict.da <- function(x, newdata, cutoff.data = x$data,
+                          ..., measure = "max") {
+  response <- model.frame(x$terms, cutoff.data)[,
+                                                1]
+  opt <- roc.opt(predict(x, cutoff.data)$posterior[,
+                                                   2], as.numeric(response), measure = measure)
+  cutoff <- opt$cutoff
+  factor(as.integer(predict(x, newdata = newdata)$posterior[,
+                                                            2] > cutoff), labels = levels(response))
+}
+
+```
+
+
+```{r}
+df <- read.csv("parkinsons.csv", comment.char = "#")
+
+#LDA иначе будет неправ.
+df$MDVP.Jitter.Abs. <- df$MDVP.Jitter.Abs. * 1000
+df.anon <- subset(df, select = -name)
+```
+
+Начнём с изучения корреляции между признаками.
+
+```{r}
+levelplot(cor(df.anon), par.settings = list(regions = list(col = colorRampPalette(grey(1:0)))), scales = list(x = list(rot = 90)), xlab = "", ylab = "")
+
+```
+
+NHR и HNR интересные признаки, которые почти ни с чем не коррелируют. 
+
+Добавим факторы в оба датасета:
+
+```{r}
+df.anon$status <- factor(df.anon$status, labels=c("Healthy", "Sick"))
+df$status <- factor(df$status, labels=c("Healthy", "Sick"))
+```
+
+Для начала попробуем использовать:
+
+```{r}
+m.lda <- tune(lda, status ~ ., data = df.anon, predict.func = simple.predict.da, tunecontrol = tune.control(sampling = "cross", cross = 10))
+m.multinom <- tune(multinom, status ~ ., data = df.anon, trace = F)
+m.bayes <- tune(naiveBayes, status ~ ., data = df.anon)
+
+m.lda$performances
+m.multinom$performances
+m.bayes$performances
+```
+
+AIC поможет улучшить модель, возможно.
+
+```{r}
+m.multinom1 <- multinom(status ~ ., data = df.anon, trace = FALSE)
+summary(m.multinom1)
+m.multinom1.opt <- stepAIC(m.multinom1)
+```
+
+Сравним, что получилось?
+
+```{r}
+formula.aic <- m.multinom1.opt$call$formula
+m.lda.opt <- tune(lda, formula.aic, data = df.anon, predict.func = simple.predict.da, tunecontrol = tune.control(sampling = "cross", cross = 10))
+m.multinom.opt <- tune(multinom, formula.aic, data = df.anon, trace = FALSE)
+m.bayes.opt <- tune(naiveBayes, formula.aic, data = df.anon)
+
+m.lda.opt$performances
+m.multinom.opt$performances
+m.bayes.opt$performances
+
+```
+
+Ошибка уменьшилась, отлично. Модель, правда, некрасивая, а судя по черным пятнам в графике корреляций можно многое удалить. Составим новую модель и протестируем:
+
+
+```{r}
+formula.nocorr <- update(formula.aic, . ~ .  - MDVP.Jitter.Abs - MDVP.RAP - MDVP.PPQ - MDVP.APQ)
+formula.nocorr
+
+tune(lda, formula.nocorr, data = df.anon, predict.func = simple.predict.da, tunecontrol = tune.control(sampling = "cross", cross = 10))$performances
+tune(multinom, formula.nocorr, data = df.anon, trace = F)$performances
+
+tune(naiveBayes, formula.nocorr , data = df.anon)$performances
+
+```
+
+Мы немного улучшились и сильно упростили модель.
+
+
+### Часть 2
+
+```{r}
+df$name <- sapply(df$name, function(x) {x = as.character(x); substr(x, 1, nchar(x) - 2)})
+
+patients <- aggregate(subset(df, select = c(-name, -status)), list(df$name, df$status), mean)
+names(patients)[2] <- "status"
+patients<- subset(patients, select = -c(Group.1))
+patients$status <- factor(patients$status, labels = c("Healthy", "Sick"))
+contrasts(patients$status)
+head(patients)
+```
+
+Повторим похожие действия:
+
+```{r}
+mp.multinom <- multinom(status ~ ., data = patients, trace = F)
+summary(mp.multinom)
+stepAIC(mp.multinom)
+```
+
+Вновь удалим коррелирующие элементы.
+
+```{r}
+formula.p <- status ~ MDVP.Fhi.Hz. + HNR + DFA + spread1 + D2
+
+
+mp.multinom.opt <- tune(multinom, formula.p, data = patients, trace = F)
+mp.lda.opt <- tune(lda, formula.p, data = patients, predict.func = simple.predict.da, tunecontrol = tune.control(sampling = "cross", cross = 10))
+mp.bayes.opt <- tune(naiveBayes, formula.p, data = patients)
+
+
+
+mp.lda.opt$performances
+mp.bayes.opt$performances
+mp.multinom.opt$performances
+
+
+```
+
+
+Ну и наконец (выбрав лучшую модель):
+
+```{r}
+
+df = subset(df, select = c(status, MDVP.Fhi.Hz., HNR, DFA, spread1, D2))
+table(predicted = predict(mp.lda.opt$best.model, patients)$class, actual = patients$status)
+
+roc <- ROC(predicted = predict(mp.lda.opt$best.model, patients)$x, actual = patients$status)
+plot(roc)
+
+AUC(predicted = predict(mp.lda.opt$best.model, patients)$x, actual = patients$status)
+```
